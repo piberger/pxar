@@ -234,7 +234,7 @@ void PixTestXray::doTest() {
 
 // ----------------------------------------------------------------------
 void PixTestXray::doPhRun() {
-
+  fApi->daqTriggerSource("pg_dir");
   banner(Form("PixTestXray::doPhRun() fParRunSeconds = %d", fParRunSeconds));
 
   gStyle->SetPalette(1);
