@@ -164,7 +164,7 @@ void PixTestTrim::trimTest() {
   if (NTRIG < 5) NTRIG = 5;
   map<int, int> rocVthrComp;
   print("VthrComp thr map (minimal VthrComp)"); 
-  vector<TH1*> thr0 = scurveMaps("vthrcomp", "TrimThr0", NTRIG, 10, 160, -1, -1, 7);
+  vector<TH1*> thr0 = scurveMaps("vthrcomp", "TrimThr0", NTRIG, 10, 250, -1, -1, 7);
   PixTest::update(); 
   if (thr0.size()/3 != rocIds.size()) {
     LOG(logERROR) << "scurve map size " << thr0.size() << " does not agree with number of enabled ROCs " << rocIds.size();
@@ -182,7 +182,7 @@ void PixTestTrim::trimTest() {
 
   // -- determine pixel with largest VCAL threshold
   print("Vcal thr map (pixel with maximum Vcal thr)"); 
-  vector<TH1*> thr1 = scurveMaps("vcal", "TrimThr1", NTRIG, 10, 160, -1, -1, 1);
+  vector<TH1*> thr1 = scurveMaps("vcal", "TrimThr1", NTRIG, 10, 250, -1, -1, 1);
   PixTest::update(); 
   if (thr1.size() != rocIds.size()) {
     LOG(logERROR) << "scurve map size " << thr1.size() << " does not agree with number of enabled ROCs " << rocIds.size() << endl;
@@ -256,7 +256,7 @@ void PixTestTrim::trimTest() {
   vector<pair<uint8_t, pair<uint8_t, vector<pixel> > > >  results;
   while (!done) {
     try {
-      results = fApi->getEfficiencyVsDACDAC("vcal", 0, 200, "vtrim", 0, 255, FLAG_FORCE_MASKED, NTRIG);
+      results = fApi->getEfficiencyVsDACDAC("vcal", 0, 250, "vtrim", 0, 255, FLAG_FORCE_MASKED, NTRIG);
       done = true;
     } catch(pxarException &e) {
       LOG(logCRITICAL) << "pXar execption: "<< e.what(); 
@@ -332,7 +332,7 @@ void PixTestTrim::trimTest() {
 
   // -- set trim bits
   int correction = 4;
-  vector<TH1*> thr2  = scurveMaps("vcal", "TrimThr2", fParNtrig, 0, 150, -1, -1, 1);
+  vector<TH1*> thr2  = scurveMaps("vcal", "TrimThr2", fParNtrig, 0, 250, -1, -1, 1);
   if (thr2.size() != rocIds.size()) {
     LOG(logERROR) << "scurve map thr2 size " << thr2.size() << " does not agree with number of enabled ROCs " << rocIds.size();
     fProblem = true;

@@ -552,10 +552,11 @@ void PixTestHighRate::doXPixelAlive() {
   // -- summary printout
   //  int nrocs = fApi->_dut->getNEnabledRocs();
   double sensorArea = 0.015 * 0.010 * 54 * 81; // in cm^2, accounting for larger edge pixels (J. Hoss 2014/10/21)
+  double sensorArea2 = 0.015 * 0.010 * 3648; // in cm^2, accounting for larger edge pixels (J. Hoss 2014/10/21)
   string deadPixelString, probPixelString, xHitsString, numTrigsString,
     fidCalHitsString, allCalHitsString,
     fidCalEfficiencyString, allCalEfficiencyString,
-    xRayRateString;
+    xRayRateString, xRayRateString2, xRayRateString3;
   for (unsigned int i = 0; i < probPixel.size(); ++i) {
     probPixelString += Form(" %4d", probPixel[i]);
     deadPixelString += Form(" %4d", deadPixel[i]);
@@ -564,9 +565,11 @@ void PixTestHighRate::doXPixelAlive() {
     fidCalHitsString += Form(" %4d", fidHits[i]);
     int numTrigs = fParNtrig * 4160;
     numTrigsString += Form(" %4d", numTrigs );
-    fidCalEfficiencyString += Form(" %.1f", fidHits[i]/static_cast<double>(fidPixels[i]*fParNtrig)*100);
-    allCalEfficiencyString += Form(" %.1f", allHits[i]/static_cast<double>(numTrigs)*100);
-    xRayRateString += Form(" %.1f", xHits[i]/static_cast<double>(numTrigs)/25./sensorArea*1000.);
+    fidCalEfficiencyString += Form(" %.3f", fidHits[i]/static_cast<double>(fidPixels[i]*fParNtrig)*100);
+    allCalEfficiencyString += Form(" %.3f", allHits[i]/static_cast<double>(numTrigs)*100);
+    xRayRateString += Form(" %.3f", xHits[i]/static_cast<double>(numTrigs)/25./sensorArea*1000.);
+    xRayRateString2 += Form(" %.3f", (xHits[i]/static_cast<double>(numTrigs)/25./sensorArea2*1000.) / (fidHits[i]/static_cast<double>(fidPixels[i]*fParNtrig)) );
+    xRayRateString3 += Form(" %.3f", (xHits[i]/static_cast<double>(numTrigs)/25./sensorArea2*1000.));
   }
 
   LOG(logINFO) << "number of dead pixels (per ROC): " << deadPixelString;
@@ -577,6 +580,8 @@ void PixTestHighRate::doXPixelAlive() {
   LOG(logINFO) << "Vcal hit fiducial efficiency (%): " << fidCalEfficiencyString;
   LOG(logINFO) << "Vcal hit overall efficiency (%): " << allCalEfficiencyString;
   LOG(logINFO) << "X-ray hit rate [MHz/cm2]: " <<  xRayRateString;
+  LOG(logINFO) << "det. Rate with 2px edge masked [MHz/cm2]: " <<  xRayRateString3;
+  LOG(logINFO) << "ext. Rate with 2px edge masked [MHz/cm2]: " <<  xRayRateString2;
   LOG(logINFO) << "PixTestHighRate::doXPixelAlive() done";
   restoreDacs();
 

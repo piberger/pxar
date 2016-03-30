@@ -50,6 +50,7 @@ private:
   bool	        fParDelayTBM;
   uint16_t      fParNtrig; 
   int           fParVcal; 
+  int           fParTTD; 
 
   bool          fPhCalOK;
   PHCalibration fPhCal;

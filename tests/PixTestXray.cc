@@ -83,6 +83,10 @@ bool PixTestXray::setParameter(string parName, string sval) {
 	fParStepSeconds = atoi(sval.c_str()); 
 	setToolTips();
       }
+      if (!parName.compare("ttd")) {
+  fParTTD = atoi(sval.c_str()); 
+  setToolTips();
+      }
       if (!parName.compare("delaytbm")) {
 	PixUtil::replaceAll(sval, "checkbox(", "");
 	PixUtil::replaceAll(sval, ")", "");
@@ -234,7 +238,7 @@ void PixTestXray::doTest() {
 
 // ----------------------------------------------------------------------
 void PixTestXray::doPhRun() {
-  fApi->daqTriggerSource("pg_dir");
+  fApi->daqTriggerSource("pg");
   banner(Form("PixTestXray::doPhRun() fParRunSeconds = %d", fParRunSeconds));
 
   gStyle->SetPalette(1);
@@ -253,10 +257,10 @@ void PixTestXray::doPhRun() {
   }
   maskPixels();
 
-  
+  fSourceChanged = true;
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
 
-  int totalPeriod = prepareDaq(fParTriggerFrequency, 50);
+  int totalPeriod = prepareDaq(fParTriggerFrequency, fParTTD);
 
   if (fParDelayTBM) {
     LOG(logINFO) << "set TBM register delays = 0x40";
@@ -448,7 +452,7 @@ void PixTestXray::doRateScan() {
   fApi->_dut->maskAllPixels(false);
   
 
-  int totalPeriod = prepareDaq(fParTriggerFrequency, 50);
+  int totalPeriod = prepareDaq(fParTriggerFrequency, fParTTD);
 
   // -- scan VthrComp  
   for (fVthrComp = fParVthrCompMin; fVthrComp <= fParVthrCompMax;  ++fVthrComp) {
@@ -804,7 +808,16 @@ void PixTestXray::processData(uint16_t numevents) {
     
     if (fParFillTree) fTree->Fill();
   }
+
+  double hitrate = fHmap[0]->Integral() / ((double)daqdat.size() * 25 * 1e-9) * 1e-6;
+  LOG(logINFO) << "RATE: " << hitrate << "MHz";
+  double hitratePerArea = fHmap[0]->Integral() / ((double)daqdat.size() * 25 * 1e-9 * 150 * 100 * 4160 * 1e-8) * 1e-6;
+  LOG(logINFO) << "RATE: " << hitratePerArea << "MHz/cm2";
+  hitratePerArea = fHmap[0]->Integral() / ((double)daqdat.size() * 25 * 1e-9 * 150 * 100 * 3648 * 1e-8) * 1e-6;
+  LOG(logINFO) << "RATE (without edge): " << hitratePerArea << "MHz/cm2";
   
+
+
   LOG(logDEBUG) << Form(" # events read: %6ld, pixels seen in all events: %3d", daqdat.size(), pixCnt);
   
   fHmap[0]->Draw("colz");

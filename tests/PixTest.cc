@@ -2006,6 +2006,8 @@ uint16_t PixTest::prepareDaq(int triggerFreq, uint8_t trgTkDel) {
   resetROC(); 
   uint16_t totalPeriod = setTriggerFrequency(triggerFreq, trgTkDel);
   fApi->setPatternGenerator(fPg_setup);
+  LOG(logINFO) << "Pattern generator:";
+  for (unsigned int i = 0; i < fPg_setup.size(); ++i) LOG(logINFO) << fPg_setup[i].first << ": " << (int)fPg_setup[i].second << endl;
   return totalPeriod;
 }
 
@@ -2023,6 +2025,8 @@ uint16_t PixTest::setTriggerFrequency(int triggerFreq, uint8_t trgTkDel) {
   
   // -- add right delay between triggers:
   uint16_t i = ClkDelays;
+  fPg_setup.push_back(make_pair("sync", 10));
+  fPg_setup.push_back(make_pair("resr", 20));
   while (i>255){
     fPg_setup.push_back(make_pair("delay", 255));
     i = i - 255;
@@ -2033,7 +2037,7 @@ uint16_t PixTest::setTriggerFrequency(int triggerFreq, uint8_t trgTkDel) {
   // -- then send trigger and token:
   fPg_setup.push_back(make_pair("trg", trgTkDel));    // PG_TRG b000010
   fPg_setup.push_back(make_pair("tok", 0));    // PG_TOK
-  if (0) for (unsigned int i = 0; i < fPg_setup.size(); ++i) cout << fPg_setup[i].first << ": " << (int)fPg_setup[i].second << endl;
+  if (0) for (unsigned int i = 0; i < fPg_setup.size(); ++i) cout << fPg_setup[i].first << ": " << (int)fPg_setup[i].second;
   
   totalPeriod = ((uint16_t)period_ns / 25) + 4 + nDel; //+4 to align to the new pg minimum (1 additional clk cycle per PG call);
   return totalPeriod;
