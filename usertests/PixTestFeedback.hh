@@ -17,9 +17,11 @@ public:
 
   void runCommand(std::string); 
   void doTest();
-  std::vector< std::pair<double, int> > getEfficiency();
+  std::vector< std::pair<double, int> > getEfficiency(int nTrig = 10);
   void efficiencyVsFeedback();
-  
+  void efficiecyVsVdig();
+  void setVdigVwllsh();
+
 private:
 
   int     fParVcal, fParStep; 

@@ -77,17 +77,26 @@ void PixTestFeedback::init() {
 void PixTestFeedback::runCommand(std::string command) {
   std::transform(command.begin(), command.end(), command.begin(), ::tolower);
   LOG(logDEBUG) << "running command: " << command;
-  if (!command.compare("vthrcomp")) {
+  if (!command.compare("effvsvdig")) {
+    efficiecyVsVdig();
     return;
   }
+  if (!command.compare("effvsfb")) {
+    efficiencyVsFeedback();
+    return;
+  }
+  if (!command.compare("setvdigvwllsh")) {
+    setVdigVwllsh();
+    return;
+  }
+
   LOG(logDEBUG) << "did not find command ->" << command << "<-";
 }
 
 
 // ----------------------------------------------------------------------
 void PixTestFeedback::setToolTips() {
-  fTestTip    = string(Form("trimming results in a uniform in-time threshold\n")
-		       + string("TO BE FINISHED!!"))
+  fTestTip    = string("")
     ;
   fSummaryTip = string("summary plot to be implemented")
     ;
@@ -106,6 +115,144 @@ PixTestFeedback::~PixTestFeedback() {
   LOG(logDEBUG) << "PixTestFeedback dtor";
 }
 
+void PixTestFeedback::efficiecyVsVdig() {
+
+  cacheDacs();
+  fApi->setDAC("vcal", fParVcal);
+
+  fApi->_dut->testAllPixels(true);
+  fApi->_dut->maskAllPixels(false);
+
+  maskPixels();
+
+  // -- pattern generator setup without resets
+  resetROC();
+  fPg_setup.clear();
+  vector<pair<string, uint8_t> > pgtmp = fPixSetup->getConfigParameters()->getTbPgSettings();
+  for (unsigned i = 0; i < pgtmp.size(); ++i) {
+    if (string::npos != pgtmp[i].first.find("resetroc")) continue;
+    if (string::npos != pgtmp[i].first.find("resettbm")) continue;
+    fPg_setup.push_back(pgtmp[i]);
+  }
+  if (0) for (unsigned int i = 0; i < fPg_setup.size(); ++i) cout << fPg_setup[i].first << ": " << (int)fPg_setup[i].second << endl;
+
+  fApi->setPatternGenerator(fPg_setup);
+
+  int iStep = fParStep;
+  int nRocs = fApi->_dut->getNEnabledRocs();
+
+  TH1D* hEff[32];
+  TH1D* hX[32];
+
+  for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
+    hEff[iRocIdx] = bookTH1D(Form("EfficiencyVsVdig_C%d", getIdFromIdx(iRocIdx)),  Form("EfficiencyVsVdig_C%d", getIdFromIdx(iRocIdx)),  256, 0, 256.0);
+    hX[iRocIdx] = bookTH1D(Form("XHitsVsVdig_C%d", getIdFromIdx(iRocIdx)),  Form("XHitsVsVdig_C%d", getIdFromIdx(iRocIdx)),  256, 0, 256.0);
+  }
+
+  for (int i=0;i<=15;i+=1) {
+
+    fApi->setDAC("vdig", i);
+
+    vector< std::pair<double, int> > effXhits = getEfficiency();
+
+    for (int j=0; j< effXhits.size(); j++) {
+      hEff[j]->SetBinContent(i, effXhits[j].first);
+      hX[j]->SetBinContent(i, effXhits[j].second);
+    }
+
+  }
+
+  for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
+    fHistList.push_back(hEff[iRocIdx]);
+    fHistList.push_back(hX[iRocIdx]);
+  }
+
+
+  for (list<TH1*>::iterator il = fHistList.begin(); il != fHistList.end(); ++il) {
+    (*il)->Draw((getHistOption(*il)).c_str()); 
+    fDisplayedHist = (il);
+  }
+  restoreDacs();
+  PixTest::update(); 
+  dutCalibrateOff();
+
+}
+
+void PixTestFeedback::setVdigVwllsh() {
+
+  cacheDacs();
+  fApi->setDAC("vcal", fParVcal);
+
+  fApi->_dut->testAllPixels(true);
+  fApi->_dut->maskAllPixels(false);
+
+  maskPixels();
+
+  // -- pattern generator setup without resets
+  resetROC();
+  fPg_setup.clear();
+  vector<pair<string, uint8_t> > pgtmp = fPixSetup->getConfigParameters()->getTbPgSettings();
+  for (unsigned i = 0; i < pgtmp.size(); ++i) {
+    if (string::npos != pgtmp[i].first.find("resetroc")) continue;
+    if (string::npos != pgtmp[i].first.find("resettbm")) continue;
+    fPg_setup.push_back(pgtmp[i]);
+  }
+  if (0) for (unsigned int i = 0; i < fPg_setup.size(); ++i) cout << fPg_setup[i].first << ": " << (int)fPg_setup[i].second << endl;
+
+  fApi->setPatternGenerator(fPg_setup);
+
+  int iStep = fParStep;
+  int nRocs = fApi->_dut->getNEnabledRocs();
+
+  vector<double> max_efficiency(nRocs, 0.0);
+  vector<int> max_efficiency_feedback(nRocs, 150);
+  vector<int> max_efficiency_vdig(nRocs, 10);
+
+  vector<int> test_feedbacks;
+  test_feedbacks.push_back(10);
+  test_feedbacks.push_back(20);
+  test_feedbacks.push_back(50);
+  test_feedbacks.push_back(100);
+  test_feedbacks.push_back(150);
+
+  for (int i=2;i<=15;i+=1) {
+
+    for (int j=0;j<test_feedbacks.size();j++) {
+
+      fApi->setDAC("vdig", i);
+
+      fApi->setDAC("vwllpr", test_feedbacks[j]);
+      fApi->setDAC("vwllsh", test_feedbacks[j]);
+
+      vector< std::pair<double, int> > effXhits = getEfficiency(10);
+
+      for (int k=0; k< effXhits.size(); k++) {
+        if (effXhits[k].first >= max_efficiency[k]) {
+          max_efficiency[k] = effXhits[k].first;
+          max_efficiency_feedback[k] = test_feedbacks[j];
+          max_efficiency_vdig[k] = i;
+        }
+
+      }
+
+    }
+
+  }
+
+  restoreDacs();
+
+  for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
+    LOG(logINFO) << "Settings found for ROC" << getIdFromIdx(iRocIdx) << ": vdig = " << max_efficiency_vdig[iRocIdx] << ", vwllpr = vwllsh = " << max_efficiency_feedback[iRocIdx];
+  
+    fApi->setDAC("vdig", max_efficiency_vdig[iRocIdx], getIdFromIdx(iRocIdx));
+    fApi->setDAC("vwllpr", max_efficiency_feedback[iRocIdx], getIdFromIdx(iRocIdx));
+    fApi->setDAC("vwllsh", max_efficiency_feedback[iRocIdx], getIdFromIdx(iRocIdx));
+  }
+
+  PixTest::update(); 
+  dutCalibrateOff();
+
+}
 
 // ----------------------------------------------------------------------
 void PixTestFeedback::doTest() {
@@ -123,10 +270,9 @@ void PixTestFeedback::doTest() {
   LOG(logINFO) << "PixTestFeedback::doTest() done, duration: " << seconds << " seconds";
 }
 
-vector< std::pair<double, int> > PixTestFeedback::getEfficiency() {
+vector< std::pair<double, int> > PixTestFeedback::getEfficiency(int nTrig) {
 
   vector< std::pair<double, int> > result;
-  int nTrig = 10;
 
   vector<TH2D*> test2 = efficiencyMaps("highRate", nTrig, FLAG_CHECK_ORDER | FLAG_FORCE_UNMASKED);
   vector<TH2D*> test3 = getXrayMaps();
@@ -181,6 +327,7 @@ vector< std::pair<double, int> > PixTestFeedback::getEfficiency() {
 
 void PixTestFeedback::efficiencyVsFeedback() {
 
+  cacheDacs();
   fApi->setDAC("vcal", fParVcal);
 
   fApi->_dut->testAllPixels(true);
@@ -236,6 +383,7 @@ void PixTestFeedback::efficiencyVsFeedback() {
     (*il)->Draw((getHistOption(*il)).c_str()); 
     fDisplayedHist = (il);
   }
+  restoreDacs();
   PixTest::update(); 
   dutCalibrateOff();
 
