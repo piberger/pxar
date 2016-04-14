@@ -198,6 +198,7 @@ void PixTestGainPedestal::measure() {
   }
 
   fHpoints.clear();
+  /*
   if (1 == fParExtended) {
     fHpoints.push_back(10); //new:  70
     fHpoints.push_back(17); //new: 119
@@ -211,7 +212,7 @@ void PixTestGainPedestal::measure() {
     fHpoints.push_back(120); //new
   }
   fHpoints.push_back(200); 
-
+  */
 
   cacheDacs();
  

@@ -209,13 +209,14 @@ void PixTestFeedback::setVdigVwllsh() {
   vector<int> max_efficiency_vdig(nRocs, 10);
 
   vector<int> test_feedbacks;
+  test_feedbacks.push_back(5);
   test_feedbacks.push_back(10);
   test_feedbacks.push_back(20);
   test_feedbacks.push_back(50);
   test_feedbacks.push_back(100);
   test_feedbacks.push_back(150);
 
-  for (int i=2;i<=15;i+=1) {
+  for (int i=3;i<=15;i+=1) {
 
     for (int j=0;j<test_feedbacks.size();j++) {
 

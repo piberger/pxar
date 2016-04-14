@@ -51,7 +51,8 @@ private:
   uint16_t      fParNtrig; 
   int           fParVcal; 
   int           fParTTD; 
-
+  bool          fParLUT;
+  
   bool          fPhCalOK;
   PHCalibration fPhCal;
 

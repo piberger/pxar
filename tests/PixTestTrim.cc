@@ -609,7 +609,7 @@ vector<TH1*> PixTestTrim::trimStep(string name, int correction, vector<TH1*> cal
     for (int ix = 0; ix < 52; ++ix) {
       for (int iy = 0; iy < 80; ++iy) {
 	trimBitsOld[i][ix][iy] = fTrimBits[i][ix][iy];
-	if (calOld[i]->GetBinContent(ix+1, iy+1) > fParVcal) {
+	if (calOld[i]->GetBinContent(ix+1, iy+1) > fParVcal && calOld[i]->GetBinContent(ix+1, iy+1) < 250) {
 	  trim = fTrimBits[i][ix][iy] - correction; 
 	} else {
 	  trim = fTrimBits[i][ix][iy] + correction; 
@@ -633,7 +633,7 @@ vector<TH1*> PixTestTrim::trimStep(string name, int correction, vector<TH1*> cal
   for (unsigned int i = 0; i < calOld.size(); ++i) {
     for (int ix = 0; ix < 52; ++ix) {
       for (int iy = 0; iy < 80; ++iy) {
-	if (TMath::Abs(calOld[i]->GetBinContent(ix+1, iy+1) - fParVcal) < TMath::Abs(calNew[i]->GetBinContent(ix+1, iy+1) - fParVcal)) {
+	if ((TMath::Abs(calOld[i]->GetBinContent(ix+1, iy+1) - fParVcal) < TMath::Abs(calNew[i]->GetBinContent(ix+1, iy+1) - fParVcal)) && calOld[i]->GetBinContent(ix+1, iy+1) < 250) {
 	  trim = trimBitsOld[i][ix][iy];
 	  calNew[i]->SetBinContent(ix+1, iy+1, calOld[i]->GetBinContent(ix+1, iy+1)); 
 	} else {

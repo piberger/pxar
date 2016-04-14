@@ -1015,6 +1015,50 @@ void ConfigParameters::readGainPedestalParameters() {
     }
     fGainPedestalParameters.push_back(rocPar); 
   }
+
+
+  fGainPedestalLUT.clear();
+  string rawname = getGainPedestalFileName(); 
+  LOG(logINFO) << "LOAD " << rawname;
+
+  for (unsigned int iroc = 0; iroc < fnRocs; ++iroc) {
+    lines.clear();
+    rocPar.clear();
+    std::stringstream fname;
+    fname.str(std::string());
+    fname << fDirectory << "/" << rawname << fTrimVcalSuffix << "_C" << iroc << ".dat"; 
+    is.open((fname.str()).c_str());
+    if (!is.is_open()) {
+      LOG(logERROR) << "cannot open " << (fname.str()) << " for reading PH calibration data"; 
+      return;
+    } 
+
+    while (is.getline(buffer, 500, '\n')) {
+      lines.push_back(string(buffer));
+    }
+    is.close();
+
+    // -- parse lines
+
+    for (unsigned int i = 4; i < lines.size(); ++i) {
+      istringstream istring(lines[i]);
+      std::vector< std::pair< int, int> > lutPix;
+      int avgPH=0;
+      for (unsigned int j=10;j<=250;j+=3) {
+        istring >> avgPH;
+        if (avgPH > 0) {
+          lutPix.push_back(std::make_pair(j, avgPH));
+        }
+
+      }
+      fGainPedestalLUT.push_back(lutPix);
+      LOG(logINFO) << lutPix.size() << " entries added!";
+    }
+    fGainPedestalParameters.push_back(rocPar); 
+  }
+  LOG(logINFO) << "reading look up table done!";
+
+
 }
 
 // ----------------------------------------------------------------------
@@ -1071,6 +1115,9 @@ std::vector<std::vector<gainPedestalParameters> > ConfigParameters::getGainPedes
   return fGainPedestalParameters; 
 }
 
+std::vector< std::vector< std::pair< int, int> > > ConfigParameters::getGainPedestalLUT() {
+  return fGainPedestalLUT;
+}
 
 void ConfigParameters::setProbe(std::string probe, std::string value) {
 

@@ -29,8 +29,8 @@ PixTestXray::PixTestXray(PixSetup *a, std::string name) : PixTest(a, name),
 
   fTree = 0; 
   fPhCal.setPHParameters(fPixSetup->getConfigParameters()->getGainPedestalParameters());
+  fPhCal.setPHLUT(fPixSetup->getConfigParameters()->getGainPedestalLUT());
   fPhCalOK = fPhCal.initialized();
-
 }
 
 
@@ -98,6 +98,12 @@ bool PixTestXray::setParameter(string parName, string sval) {
 	PixUtil::replaceAll(sval, ")", "");
 	fParFillTree = !(atoi(sval.c_str())==0);
 	setToolTips();
+      }
+      if (!parName.compare("lut")) {
+  PixUtil::replaceAll(sval, "checkbox(", "");
+  PixUtil::replaceAll(sval, ")", "");
+  fParLUT = !(atoi(sval.c_str())==0);
+  setToolTips();
       }
       break;
     }
@@ -259,7 +265,15 @@ void PixTestXray::doPhRun() {
 
   fSourceChanged = true;
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
+  if (fParTTD < 1) fParTTD = 50;
 
+  if (fParLUT) {
+    fPhCal.setMode(2);
+    LOG(logINFO) << "using look up table!!!";
+  } else {
+    fPhCal.setMode(0);
+    LOG(logINFO) << "using err function fit!!!";
+  }
   int totalPeriod = prepareDaq(fParTriggerFrequency, fParTTD);
 
   if (fParDelayTBM) {
@@ -812,12 +826,12 @@ void PixTestXray::processData(uint16_t numevents) {
   double hitrate = fHmap[0]->Integral() / ((double)daqdat.size() * 25 * 1e-9) * 1e-6;
   LOG(logINFO) << "RATE: " << hitrate << "MHz";
   double hitratePerArea = fHmap[0]->Integral() / ((double)daqdat.size() * 25 * 1e-9 * 150 * 100 * 4160 * 1e-8) * 1e-6;
-  LOG(logINFO) << "RATE: " << hitratePerArea << "MHz/cm2";
+  LOG(logINFO) << "RATE: " << hitratePerArea << "MHz/cm2";  
+  hitratePerArea = fHmap[0]->Integral() / ((double)daqdat.size() * 25 * 1e-9 * 150 * 100 * 3900 * 1e-8) * 1e-6;
+  LOG(logINFO) << "RATE (without 1px edge): " << hitratePerArea << "MHz/cm2";
   hitratePerArea = fHmap[0]->Integral() / ((double)daqdat.size() * 25 * 1e-9 * 150 * 100 * 3648 * 1e-8) * 1e-6;
-  LOG(logINFO) << "RATE (without edge): " << hitratePerArea << "MHz/cm2";
+  LOG(logINFO) << "RATE (without 2px edge): " << hitratePerArea << "MHz/cm2";
   
-
-
   LOG(logDEBUG) << Form(" # events read: %6ld, pixels seen in all events: %3d", daqdat.size(), pixCnt);
   
   fHmap[0]->Draw("colz");

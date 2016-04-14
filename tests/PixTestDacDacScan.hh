@@ -20,6 +20,7 @@ private:
 
   int     fParNtrig; 
   int     fParPHmap; 
+  int     fParUnmasked;
   std::string fParDAC1, fParDAC2; 
   int     fParLoDAC1, fParHiDAC1;
   int     fParLoDAC2, fParHiDAC2;

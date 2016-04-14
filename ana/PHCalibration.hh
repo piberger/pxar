@@ -27,13 +27,18 @@ public:
   double vcalTanH(int iroc, int icol, int irow, double ph);
   double phTanH(int iroc, int icol, int irow, double vcal);
 
+  double vcalLUT(int iroc, int icol, int irow, double vcal);
+
   void setPHParameters(std::vector<std::vector<gainPedestalParameters> > ); 
+  void setPHLUT(std::vector< std::vector< std::pair< int, int> > >); 
+  
   bool initialized() {return (fParameters.size() > 0);}
   std::string getParameters(int iroc, int icol, int irow); 
 
  private: 
   int fMode; 
   std::vector<std::vector<gainPedestalParameters> > fParameters;
+  std::vector< std::vector< std::pair< int, int> > > fLUT;
   
 };
 

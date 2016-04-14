@@ -49,6 +49,12 @@ bool PixTestDacDacScan::setParameter(string parName, string sval) {
 	fParPHmap = atoi(sval.c_str()); 
 	setToolTips();
       }
+      if (!parName.compare("unmasked")) {
+  PixUtil::replaceAll(sval, "checkbox(", ""); 
+  PixUtil::replaceAll(sval, ")", ""); 
+  fParUnmasked = atoi(sval.c_str()); 
+  setToolTips();
+      }
       if (!parName.compare("dac1")) {
 	fParDAC1 = sval; 
 	setToolTips();
@@ -179,7 +185,12 @@ void PixTestDacDacScan::doTest() {
   }
 
   fApi->_dut->testAllPixels(false);
-  fApi->_dut->maskAllPixels(true);
+  if (fParUnmasked != 1) {
+    fApi->_dut->maskAllPixels(true);
+  } else {
+    fApi->_dut->maskAllPixels(false);
+    FLAGS = FLAG_FORCE_UNMASKED;
+  }
   vector<pair<uint8_t, pair<uint8_t, vector<pixel> > > >  rresults, results;
   int problems(0); 
   fNDaqErrors = 0; 

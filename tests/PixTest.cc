@@ -2025,14 +2025,13 @@ uint16_t PixTest::setTriggerFrequency(int triggerFreq, uint8_t trgTkDel) {
   
   // -- add right delay between triggers:
   uint16_t i = ClkDelays;
-  fPg_setup.push_back(make_pair("sync", 10));
   fPg_setup.push_back(make_pair("resr", 20));
   while (i>255){
     fPg_setup.push_back(make_pair("delay", 255));
     i = i - 255;
     nDel++;
   }
-  fPg_setup.push_back(make_pair("delay", i));
+  if (i>0) fPg_setup.push_back(make_pair("delay", i));
   
   // -- then send trigger and token:
   fPg_setup.push_back(make_pair("trg", trgTkDel));    // PG_TRG b000010

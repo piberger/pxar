@@ -137,6 +137,7 @@ public:
   void writeGainPedestalParameters(); 
   void setGainPedestalParameters(std::vector<std::vector<gainPedestalParameters> >); 
   std::vector<std::vector<gainPedestalParameters> > getGainPedestalParameters(); 
+  std::vector< std::vector< std::pair< int, int> > > getGainPedestalLUT(); 
 
   double getIa() {return ia;}
   double getId() {return id;}
@@ -169,6 +170,8 @@ private:
   std::vector<int> fSelectedRocs, fSelectedTbms;
 
   std::vector<std::vector<gainPedestalParameters> > fGainPedestalParameters;
+
+  std::vector< std::vector< std::pair< int, int> > > fGainPedestalLUT;
 
   std::vector<std::vector<std::pair<int, int> > > fMaskedPixels;
 

@@ -288,6 +288,15 @@ void PixTestPhOptimization::GetMaxPhPixel(map<int, pxar::pixel > &maxpixels,   s
     init_phScale = 110;
     init_phOffset = 220;
   }
+  fApi->setDAC("vcal",255);
+  fApi->setDAC("ctrlreg",4);
+  if (rocType == "proc600") {
+    init_phScale = 60;
+    init_phOffset = 220;
+    fApi->setDAC("vcal",100);
+    fApi->setDAC("ctrlreg",0);
+    LOG(logINFO)<<"PROC600 found! using 60/220/100 as start values!";
+  }
   int flag_maxPh=0;
   pair<int, pxar::pixel> maxpixel;
   maxpixel.second.setValue(0);
@@ -298,10 +307,7 @@ void PixTestPhOptimization::GetMaxPhPixel(map<int, pxar::pixel > &maxpixels,   s
   while((maxph>254 || maxph==0) && flag_maxPh<52){
     fApi->setDAC("phscale", abs(init_phScale)%255);
     fApi->setDAC("phoffset",init_phOffset);  
-    fApi->setDAC("vcal",255);
-    fApi->setDAC("ctrlreg",4);
     maxphmap = phMaps("maxphmap", 10, 0);
-    
     maxph=0;
     //check that the pixel showing highest PH on the module is not reaching 255
     for( unsigned int ith2 = 0; ith2 < maxphmap.size(); ith2++) {
@@ -446,12 +452,19 @@ void PixTestPhOptimization::GetMinPhPixel(map<int, pxar::pixel > &minpixels, map
   int xbinmin=0, ybinmin=0, zbinmin=0;
   int colmin=0, rowmin=0;
   int minph_roc = -1;
+  fApi->setDAC("ctrlreg",0);
+  fApi->setDAC("vcal",60);
+  if (rocType == "proc600") {
+    init_phScale = 60;
+    init_phOffset = 220;
+    fApi->setDAC("vcal",100);
+    fApi->setDAC("ctrlreg",0);
+    LOG(logINFO)<<"PROC600 found! using 60/220/100 as start values!";
+  }
   while(minph<12 && flag_minPh<52){
     LOG(logDEBUG) << "init_phScale=" << init_phScale << ", flag_minPh = " << flag_minPh << ", minph = " << minph;
     fApi->setDAC("phscale", init_phScale%255);
-    fApi->setDAC("phoffset",init_phOffset);  
-    fApi->setDAC("ctrlreg",0);
-    fApi->setDAC("vcal",60);
+    fApi->setDAC("phoffset",init_phOffset);
     minphmap = phMaps("minphmap", 10, 0);
     minph=255;
     LOG(logDEBUG) << "result size "<<result.size()<<endl;
@@ -618,6 +631,9 @@ void PixTestPhOptimization::GetMinPhPixel(map<int, pxar::pixel > &minpixels, map
       }
     }
     vcalthr = static_cast<int>( h1->GetBinCenter( h1->FindFirstBinAbove(10.) ) );
+    if (rocType == "proc600") {
+      vcalthr += 5;
+    }
     vcalmin = make_pair(roc_it, vcalthr);
     minVcal.insert(vcalmin);
     h1->Reset();
