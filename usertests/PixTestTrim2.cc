@@ -97,6 +97,10 @@ void PixTestTrim2::runCommand(std::string command) {
     retrimStep(); 
     return;
   }
+  if (!command.compare("final")) {
+    final(); 
+    return;
+  }
   if (!command.compare("save")) {
     saveTrimBits(); 
     return;
@@ -295,7 +299,7 @@ void PixTestTrim2::findVthrcomp() {
     setVthrcomp(vthrcomp);
   }
 
-  fApi->setDAC("vtrim", 100);
+  fApi->setDAC("vtrim", 60);
   LOG(logINFO) << "final vtrhcomp = " << vthrcomp;
 }
 
@@ -405,9 +409,7 @@ void PixTestTrim2::setVthrcomp(int vthrcomp) {
 
 // ----------------------------------------------------------------------
 void PixTestTrim2::retrimStep() {
-
-
-  int ntrig = 50;
+  int ntrig = fParNtrig;
 
   fApi->_dut->testAllPixels(true);
   fApi->_dut->maskAllPixels(false);
@@ -419,6 +421,9 @@ void PixTestTrim2::retrimStep() {
   int nSteps = fParNSteps;
   bool parChange = false;
   int nRequestLargerVtrim = 0;
+
+  std::vector< int > best50PercentDifferences(4160, ntrig);
+  std::vector< int > best50PercentDifferenceTrimbits(4160, 7);
 
   for (int j=1;j<=nSteps;j++) {
 
@@ -468,12 +473,12 @@ void PixTestTrim2::retrimStep() {
                     nActions++;
                   }
                 }
-            } else if (fLargeSignal < 0.8) {
+            } else if (fLargeSignal < 0.5) {
                 if (fTrimBits[0][ix][iy] < 15) {
                   fTrimBits[0][ix][iy] += 1;
                   nActions++;
                 }
-            } else if (fAboveThreshold < fBelowThreshold) {
+            } else if (fBelowThreshold - fAboveThreshold > 0.1) {
                 if (fTrimBits[0][ix][iy] < 15) {
                   fTrimBits[0][ix][iy] += 1;
                   nActions++;
@@ -483,24 +488,35 @@ void PixTestTrim2::retrimStep() {
                   fTrimBits[0][ix][iy] += 1;
                   nActions++;
                 }
-            // normal cases
-            } else if (fBelowThreshold < fAtThreshold && fAtThreshold < fAboveThreshold ) {
-                if (fAtThreshold > 0.7) {
-                  // increase threshold
-                  if (fTrimBits[0][ix][iy] < 15) {
-                    fTrimBits[0][ix][iy]++;
-                    nActions++;
-                  }
-                } else if (fAtThreshold < 0.2) {
-                  // decrease threshold
-                  if (fTrimBits[0][ix][iy] > 0) {
-                    fTrimBits[0][ix][iy]--;
-                    nActions++;
-                  } else {
-                    nRequestLargerVtrim++;
-                  }
+            } else {
+              int difference50 = abs(atThreshold[i]->GetBinContent(ix+1, iy+1) - ntrig/2);
+              if (difference50 < best50PercentDifferences[ix*80+iy]) {
+                best50PercentDifferences[ix*80+iy] = difference50 ;
+                best50PercentDifferenceTrimbits[ix*80+iy] = fTrimBits[0][ix][iy];
+              } else {
+                fTrimBits[0][ix][iy] = best50PercentDifferenceTrimbits[ix*80+iy];
+              }
+              // normal cases
+              if (fBelowThreshold < fAtThreshold && fAtThreshold < fAboveThreshold ) {
+                    if (fAtThreshold > 0.7) {
+                      // increase threshold
+                      if (fTrimBits[0][ix][iy] < 15) {
+                        fTrimBits[0][ix][iy]++;
+                        nActions++;
+                      }
+                    } else if (fAtThreshold < 0.2) {
+                      // decrease threshold
+                      if (fTrimBits[0][ix][iy] > 0) {
+                        fTrimBits[0][ix][iy]--;
+                        nActions++;
+                      } else {
+                        nRequestLargerVtrim++;
+                      }
+                    }
                 }
+
             }
+
 
             if (fTrimBits[0][ix][iy] > 15) fTrimBits[0][ix][iy] = 15;
             if (fTrimBits[0][ix][iy] < 1)  fTrimBits[0][ix][iy] = 0;
@@ -523,6 +539,9 @@ void PixTestTrim2::retrimStep() {
       }
       if (vtrim > 255) vtrim = 255;
       LOG(logINFO) << nRequestLargerVtrim << " pixels request a larger vtrim, going to " << vtrim;
+      for (int i=0;i<4160;i++) {
+        best50PercentDifferences[i] = ntrig;
+      }
       fApi->setDAC("vtrim", vtrim);
       nSteps++;
     }
@@ -538,32 +557,31 @@ void PixTestTrim2::retrimStep() {
     LOG(logINFO) << "retrimStep()" << j << " of " << fParNSteps << " => nActions = " << nActions;
   }
 
+  TH2D* trimbitMap = bookTH2D(Form("trimbitMap_Final_C0"), Form("trimbitMap_Final_C0"), 52, 0., static_cast<double>(52), 80, 0., static_cast<double>(80)); 
+  TH1D* trimbitMapDstr = bookTH1D(Form("trimbitMap_Final_dstr_C0"), Form("trimbitMap_Final_dstr_C0"), 16, 0., 16); 
+  for (int ix = 0; ix < 52; ++ix) {
+    for (int iy = 0; iy < 80; ++iy) {
+      fTrimBits[0][ix][iy] = best50PercentDifferenceTrimbits[ix*80+iy];
+      trimbitMap->Fill(ix,iy,fTrimBits[0][ix][iy]);
+      trimbitMapDstr->Fill(fTrimBits[0][ix][iy]);
+    }
+  }
+
+  trimbitMap->Draw("colz");
+  fHistList.push_back(trimbitMap);
+  fHistList.push_back(trimbitMapDstr);
+  fHistOptions.insert(make_pair(trimbitMap, "colz")); 
+  fDisplayedHist = find(fHistList.begin(), fHistList.end(), trimbitMapDstr);
+  trimbitMapDstr->Draw();
+
+  PixTest::update(); 
+
   fPixSetup->getConfigParameters()->setTrimVcalSuffix(Form("%d", fParVcal), true);
 
 }
 
+void PixTestTrim2::final() {
 
-// ----------------------------------------------------------------------
-void PixTestTrim2::trimTest() {
-
-  gStyle->SetPalette(1);
-  bool verbose(false);
-  cacheDacs(verbose);
-  fDirectory->cd();
-  PixTest::update(); 
-  banner(Form("PixTestTrim2::trimTest() ntrig = %d, vcal = %d", fParNtrig, fParVcal));
-
-  //vector<TH1*> thrI = scurveMaps("vcal", "TrimThr0", 10, 0, 120, -1, -1, 9); 
-  PixTest::update(); 
-
-  findVthrcomp();
-
-  fApi->_dut->testAllPixels(true);
-  fApi->_dut->maskAllPixels(false);
-  maskPixels();
-  setTrimBits(7);
-
-  retrimStep();
   int vcalMin = fParVcal-30;
   int vcalMax = fParVcal+30;
 
@@ -593,6 +611,32 @@ void PixTestTrim2::trimTest() {
   LOG(logINFO) << "PixTestTrim2::trimTest() done";
 
   PixTest::update(); 
+
+}
+
+
+// ----------------------------------------------------------------------
+void PixTestTrim2::trimTest() {
+
+  gStyle->SetPalette(1);
+  bool verbose(false);
+  cacheDacs(verbose);
+  fDirectory->cd();
+  PixTest::update(); 
+  banner(Form("PixTestTrim2::trimTest() ntrig = %d, vcal = %d", fParNtrig, fParVcal));
+
+  //vector<TH1*> thrI = scurveMaps("vcal", "TrimThr0", 10, 0, 120, -1, -1, 9); 
+  PixTest::update(); 
+
+  findVthrcomp();
+
+  fApi->_dut->testAllPixels(true);
+  fApi->_dut->maskAllPixels(false);
+  maskPixels();
+  setTrimBits(7);
+
+  retrimStep();
+  final();
 }
 
 

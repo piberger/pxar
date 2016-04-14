@@ -27,6 +27,7 @@ public:
   double getEfficiency();
   void retrimStep();
   void findVthrcomp();
+  void final();
   
 private:
 
