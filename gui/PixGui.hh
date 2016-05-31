@@ -61,6 +61,7 @@ public:
   void powerOn();
   void powerOff();
   bool isPowerOff() {return !fPower;}
+  void writeLog();
 
   PixTest* createTest(std::string); 
 
@@ -88,14 +89,16 @@ private:
     B_EXIT,
     B_WRITEALLFILES,
     B_POWER,
-    B_HV
+    B_HV,
+    B_LOG
   };
 
   TTimer        	*fTimer;
   TGTab               	*fTabs;
   //  TGCompositeFrame     	*fParTab;
   TGTextBuffer          *fRootFileNameBuffer, *fDirNameBuffer, *fReadbackBuffer;
-  TGTextButton		*fbtnPower, *fbtnHV;
+  TGTextButton		*fbtnPower, *fbtnHV, *writelogButton;
+  TGTextEntry* fWriteLogText;
   TGSlider		*fpowerSlider;
   TGSlider		*fhvSlider;
   TGLabel		*flblPower;

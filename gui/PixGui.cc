@@ -216,7 +216,7 @@ TGMainFrame(p, 1, 1, kVerticalFrame), fWidth(w), fHeight(h) {
   rbTxt->SetWidth(0.25*rbFrame->GetDefaultWidth()); 
   rbTxt->SetToolTipText("Not yet implemented!");
 
-  
+
   TGHorizontalFrame *rbbFrame = new TGHorizontalFrame(h1v2r);
   h1v2r->AddFrame(rbbFrame, new TGLayoutHints(kLHintsTop, fBorderN, fBorderN, fBorderN, fBorderN));
   rbbFrame->SetName("rbbFrame");
@@ -322,6 +322,19 @@ TGMainFrame(p, 1, 1, kVerticalFrame), fWidth(w), fHeight(h) {
   // doutput->Resize(100, doutput->GetDefaultHeight());
   doutput->Connect("ReturnPressed()", "PixGui", this, "handleButtons()");
   dirFrame->AddFrame(doutput, new TGLayoutHints(kLHintsRight, fBorderN, fBorderN, fBorderN, fBorderN));
+
+
+  TGHorizontalFrame *wlFrame = new TGHorizontalFrame(FpControl);
+  FpControl->AddFrame(wlFrame, new TGLayoutHints(kLHintsBottom|kLHintsLeft, fBorderN, fBorderN, fBorderN, fBorderN));
+  wlFrame->SetName("wlFrame");
+
+  fWriteLogText = new TGTextEntry(wlFrame, fReadbackBuffer = new TGTextBuffer(5));
+  wlFrame->AddFrame(fWriteLogText, new TGLayoutHints(kLHintsLeft, fBorderN, fBorderN, fBorderN, fBorderN));
+
+  writelogButton = new TGTextButton(wlFrame, "writelog", B_LOG);
+  writelogButton->Resize(70,35);
+  writelogButton->Connect("Clicked()", "PixGui", this, "writeLog()");
+  wlFrame->AddFrame(writelogButton, new TGLayoutHints(kLHintsLeft, fBorderN, fBorderN, fBorderN, fBorderN));
 
   fH1->AddFrame(h1v2, new TGLayoutHints(kLHintsLeft  , fBorderN, fBorderN, fBorderN, fBorderN));
   fH1->AddFrame(h1v3, new TGLayoutHints(kLHintsRight , fBorderN, fBorderN, fBorderN, fBorderN));
@@ -517,6 +530,11 @@ void PixGui::handleButtons(Int_t id) {
   default:
     break;
   }
+}
+
+// ----------------------------------------------------------------------
+void PixGui::writeLog() {
+  LOG(logINFO) << "USER:" << ((TGTextEntry*)fWriteLogText)->GetText();
 }
 
 // ----------------------------------------------------------------------
