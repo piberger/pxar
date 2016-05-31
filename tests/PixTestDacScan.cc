@@ -136,7 +136,7 @@ void PixTestDacScan::doTest() {
   uint16_t FLAGS = FLAG_FORCE_MASKED; 
   if (fParUnmasked) {
     LOG(logINFO) << "unmasking the detector"; 
-    FLAGS = FLAG_CHECK_ORDER | FLAG_FORCE_UNMASKED; 
+    FLAGS = FLAG_FORCE_UNMASKED; 
   }
 
   fDirectory->cd();
@@ -229,7 +229,11 @@ void PixTestDacScan::doTest() {
     if (fNDaqErrors > 0) problems = fNDaqErrors; 
   } else {
     fApi->_dut->testAllPixels(false);
-    fApi->_dut->maskAllPixels(true);
+    if (fParUnmasked != 1) {
+      fApi->_dut->maskAllPixels(true);
+    } else {
+      fApi->_dut->maskAllPixels(false);
+    }
     for (unsigned int i = 0; i < fPIX.size(); ++i) {
       if (fPIX[i].first > -1)  {
 	fApi->_dut->testPixel(fPIX[i].first, fPIX[i].second, true);

@@ -1646,7 +1646,7 @@ void PixTest::scurveAna(string dac, string name, vector<shist256*> maps, vector<
   //  string fname("SCurveData");
   ofstream OutputFile;
   string line; 
-  string empty("32  93   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 ");
+  string empty("64  93   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 ");
   bool dumpFile(false); 
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 
   int roc(0), ic(0), ir(0); 
@@ -1712,9 +1712,9 @@ void PixTest::scurveAna(string dac, string name, vector<shist256*> maps, vector<
 
       // -- write file
       if (dumpFile) {
-	int NSAMPLES(32); 
+	int NSAMPLES(64); 
 	int ibin = h1->FindBin(fThreshold); 
-	int bmin = ibin - 15;
+	int bmin = ibin - NSAMPLES/2 + 1;
 	line = Form("%2d %3d", NSAMPLES, bmin); 
 	for (int ix = bmin; ix < bmin + NSAMPLES; ++ix) {
 	  line += string(Form(" %3d", static_cast<int>(h1->GetBinContent(ix+1)))); 
@@ -2038,7 +2038,7 @@ uint16_t PixTest::setTriggerFrequency(int triggerFreq, uint8_t trgTkDel) {
   fPg_setup.push_back(make_pair("tok", 0));    // PG_TOK
   if (0) for (unsigned int i = 0; i < fPg_setup.size(); ++i) cout << fPg_setup[i].first << ": " << (int)fPg_setup[i].second;
   
-  totalPeriod = ((uint16_t)period_ns / 25) + 4 + nDel; //+4 to align to the new pg minimum (1 additional clk cycle per PG call);
+  totalPeriod = ((uint16_t)period_ns / 25) + 4 + nDel+25; //+4 to align to the new pg minimum (1 additional clk cycle per PG call);
   return totalPeriod;
 }
 

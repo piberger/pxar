@@ -328,6 +328,7 @@ vector<pair<std::string, uint8_t> >  ConfigParameters::getTbPgSettings() {
   
   if (fnTbms < 1) {
     a.push_back(make_pair("resetroc",25));    // PG_RESR b001000 
+    a.push_back(make_pair("delay",29));    // PG_TRG  b000010
     a.push_back(make_pair("calibrate",wbc+delay)); // PG_CAL  b000100
     a.push_back(make_pair("trigger",16));    // PG_TRG  b000010
     a.push_back(make_pair("token",0));     // PG_TOK  b000001

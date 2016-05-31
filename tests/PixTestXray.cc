@@ -442,6 +442,9 @@ void PixTestXray::doPhRun() {
 
   LOG(logINFO) << "PixTestXray::doPhRun() done";
 
+  fPg_setup.clear();
+  fPg_setup = fPixSetup->getConfigParameters()->getTbPgSettings();
+  fApi->setPatternGenerator(fPg_setup);
 }
 
 
