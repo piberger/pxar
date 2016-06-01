@@ -374,9 +374,10 @@ void ConfigParameters::readRocPixelConfig() {
     vector<pair<int, int> > v = fMaskedPixels[i]; 
     if (v.size() > 0) {
       rocmasked[i] = true; 
-      for (unsigned int j = 0; j < v.size(); ++j) {
-	LOG(logINFO) << "MASKED Roc " << i << " col/row: " << v[j].first << " " << v[j].second;
-      }
+      //for (unsigned int j = 0; j < v.size(); ++j) {
+	    // LOG(logINFO) << "MASKED Roc " << i << " col/row: " << v[j].first << " " << v[j].second;
+      //}
+       LOG(logINFO) << "MASKED Roc " << i << v.size() << " pixels.";
     }
   }
   

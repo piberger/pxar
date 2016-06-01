@@ -1963,12 +1963,16 @@ void PixTest::maskPixels() {
   if (0 == fPixSetup->getConfigParameters()->nMaskedPixels()) return;
   vector<vector<pair<int, int> > > vmask =  fPixSetup->getConfigParameters()->getMaskedPixels();
   for (unsigned int i = 0; i < vmask.size(); ++i) {
+    int nPix =0;
     vector<pair<int, int> > mask = vmask[i]; 
     for (unsigned int ipix = 0; ipix < mask.size(); ++ipix) {
-      LOG(logINFO) << "ROC " << getIdFromIdx(i) << " masking pixel " << mask[ipix].first << "/" << mask[ipix].second; 
+      //LOG(logINFO) << "ROC " << getIdFromIdx(i) << " masking pixel " << mask[ipix].first << "/" << mask[ipix].second; 
+      nPix++;
       fApi->_dut->maskPixel(mask[ipix].first, mask[ipix].second, true, getIdFromIdx(i)); 
     }
+    LOG(logINFO) << "ROC " << getIdFromIdx(i) << " masking " << nPix << " pixels."; 
   }
+
 }
 
 
