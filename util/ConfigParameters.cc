@@ -397,7 +397,7 @@ void ConfigParameters::readRocPixelConfig() {
 	  vector<pair<int, int> > v = fMaskedPixels[i]; 
 	  for (unsigned int j = 0; j < v.size(); ++j) {
 	    if (v[j].first == ic && v[j].second == ir) {
-	      LOG(logINFO) << "  masking Roc " << i << " col/row: " << v[j].first << " " << v[j].second;
+	      //LOG(logINFO) << "  masking Roc " << i << " col/row: " << v[j].first << " " << v[j].second;
 	      a.setMask(true);
 	    }
 	  }

@@ -577,7 +577,7 @@ bool hal::rocSetDACs(uint8_t roci2c, std::map< uint8_t, uint8_t > dacPairs) {
   for(std::map< uint8_t,uint8_t >::iterator it = dacPairs.begin(); it != dacPairs.end(); ++it) {
     if(it->first == ROC_DAC_RangeTemp) { rangetemp = it; continue; }
 
-    LOG(logDEBUGHAL) << "Set DAC" << static_cast<int>(it->first) << " to " << static_cast<int>(it->second);
+    LOG(logINFO) << "Set DAC" << static_cast<int>(it->first) << " to " << static_cast<int>(it->second);
     _testboard->roc_SetDAC(it->first,it->second);
     if(it->first == ROC_DAC_WBC) { is_wbc = true; }
   }
