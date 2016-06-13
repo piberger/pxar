@@ -30,7 +30,7 @@ data                button
 */
 
 // ----------------------------------------------------------------------
-PixTestDoubleColumn::PixTestDoubleColumn(PixSetup *a, std::string name) : PixTest(a, name), fParNtrig(1), fParNpix(1), fParDelay(1000),fParTsMin(0),fParTsMax(23),fParDaqDatRead(false) {
+PixTestDoubleColumn::PixTestDoubleColumn(PixSetup *a, std::string name) : PixTest(a, name), fParNtrig(1), fParNpix(1), fParDelay(1000),fParTsMin(0),fParTsMax(23),fParDaqDatRead(false),fParRowOffset(10) {
   PixTest::init();
   init(); 
   //  LOG(logINFO) << "PixTestDoubleColumn ctor(PixSetup &a, string, TGTab *)";
@@ -197,29 +197,29 @@ void PixTestDoubleColumn::testBuffers(std::vector<TH2D*> hX, int tsMin, int tsMa
   for (int iDcTest=0;iDcTest<26;iDcTest++) {
     LOG(logINFO) << "testing double column " << (int)iDcTest;
     if (fParNpix == 1) {
-      fApi->_dut->testPixel(2*iDcTest,10,true);
-      fApi->_dut->maskPixel(2*iDcTest,10,false);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset,true);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset,false);
     } else if (fParNpix == 2) {
-      fApi->_dut->testPixel(2*iDcTest,10,true);
-      fApi->_dut->maskPixel(2*iDcTest,10,false);
-      fApi->_dut->testPixel(2*iDcTest+1,10,true);
-      fApi->_dut->maskPixel(2*iDcTest+1,10,false);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset,true);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset,false);
+      fApi->_dut->testPixel(2*iDcTest+1,fParRowOffset,true);
+      fApi->_dut->maskPixel(2*iDcTest+1,fParRowOffset,false);
     } else if (fParNpix == 3) {
-      fApi->_dut->testPixel(2*iDcTest,10,true);
-      fApi->_dut->maskPixel(2*iDcTest,10,false);
-      fApi->_dut->testPixel(2*iDcTest+1,10,true);
-      fApi->_dut->maskPixel(2*iDcTest+1,10,false);
-      fApi->_dut->testPixel(2*iDcTest,11,true);
-      fApi->_dut->maskPixel(2*iDcTest,11,false);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset,true);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset,false);
+      fApi->_dut->testPixel(2*iDcTest+1,fParRowOffset,true);
+      fApi->_dut->maskPixel(2*iDcTest+1,fParRowOffset,false);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset+1,true);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset+1,false);
     } else {
-      fApi->_dut->testPixel(2*iDcTest,10,true);
-      fApi->_dut->maskPixel(2*iDcTest,10,false);
-      fApi->_dut->testPixel(2*iDcTest+1,10,true);
-      fApi->_dut->maskPixel(2*iDcTest+1,10,false);
-      fApi->_dut->testPixel(2*iDcTest,11,true);
-      fApi->_dut->maskPixel(2*iDcTest,11,false);
-      fApi->_dut->testPixel(2*iDcTest+1,11,true);
-      fApi->_dut->maskPixel(2*iDcTest+1,11,false);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset,true);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset,false);
+      fApi->_dut->testPixel(2*iDcTest+1,fParRowOffset,true);
+      fApi->_dut->maskPixel(2*iDcTest+1,fParRowOffset,false);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset+1,true);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset+1,false);
+      fApi->_dut->testPixel(2*iDcTest+1,fParRowOffset+1,true);
+      fApi->_dut->maskPixel(2*iDcTest+1,fParRowOffset+1,false);
     }
 
     // DAQ
@@ -240,29 +240,29 @@ void PixTestDoubleColumn::testBuffers(std::vector<TH2D*> hX, int tsMin, int tsMa
     resetDaq();
 
     if (fParNpix == 1) {
-      fApi->_dut->testPixel(2*iDcTest,10,false);
-      fApi->_dut->maskPixel(2*iDcTest,10,true);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset,false);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset,true);
     } else if (fParNpix == 2) {
-      fApi->_dut->testPixel(2*iDcTest,10,false);
-      fApi->_dut->maskPixel(2*iDcTest,10,true);
-      fApi->_dut->testPixel(2*iDcTest+1,10,false);
-      fApi->_dut->maskPixel(2*iDcTest+1,10,true);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset,false);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset,true);
+      fApi->_dut->testPixel(2*iDcTest+1,fParRowOffset,false);
+      fApi->_dut->maskPixel(2*iDcTest+1,fParRowOffset,true);
     } else if (fParNpix == 3) {
-      fApi->_dut->testPixel(2*iDcTest,10,false);
-      fApi->_dut->maskPixel(2*iDcTest,10,true);
-      fApi->_dut->testPixel(2*iDcTest+1,10,false);
-      fApi->_dut->maskPixel(2*iDcTest+1,10,true);
-      fApi->_dut->testPixel(2*iDcTest,11,false);
-      fApi->_dut->maskPixel(2*iDcTest,11,true);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset,false);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset,true);
+      fApi->_dut->testPixel(2*iDcTest+1,fParRowOffset,false);
+      fApi->_dut->maskPixel(2*iDcTest+1,fParRowOffset,true);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset+1,false);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset+1,true);
     } else {
-      fApi->_dut->testPixel(2*iDcTest,10,false);
-      fApi->_dut->maskPixel(2*iDcTest,10,true);
-      fApi->_dut->testPixel(2*iDcTest+1,10,false);
-      fApi->_dut->maskPixel(2*iDcTest+1,10,true);
-      fApi->_dut->testPixel(2*iDcTest,11,false);
-      fApi->_dut->maskPixel(2*iDcTest,11,true);
-      fApi->_dut->testPixel(2*iDcTest+1,11,false);
-      fApi->_dut->maskPixel(2*iDcTest+1,11,true);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset,false);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset,true);
+      fApi->_dut->testPixel(2*iDcTest+1,fParRowOffset,false);
+      fApi->_dut->maskPixel(2*iDcTest+1,fParRowOffset,true);
+      fApi->_dut->testPixel(2*iDcTest,fParRowOffset+1,false);
+      fApi->_dut->maskPixel(2*iDcTest,fParRowOffset+1,true);
+      fApi->_dut->testPixel(2*iDcTest+1,fParRowOffset+1,false);
+      fApi->_dut->maskPixel(2*iDcTest+1,fParRowOffset+1,true);
     }
   }
 }
@@ -308,6 +308,54 @@ void PixTestDoubleColumn::testData() {
 
 }
 
+void PixTestDoubleColumn::findWorkingRows() {
+
+  cacheDacs();
+  fDirectory->cd();
+  PixTest::update(); 
+
+  fApi->setDAC("vcal", 250);
+
+  fApi->_dut->testAllPixels(true);
+  fApi->_dut->maskAllPixels(false);
+  maskPixels();
+
+  fNDaqErrors = 0; 
+  int nTrig=10;
+  vector<TH2D*> test2 = efficiencyMaps("PixelAlive", nTrig, FLAG_FORCE_MASKED); 
+  vector<int> deadPixel(test2.size(), 0); 
+  vector<int> probPixel(test2.size(), 0); 
+
+  int iRow = 10;
+  bool rowOk = false;
+  while (iRow < 76 && !rowOk) {
+    rowOk = true;
+    for (unsigned int i = 0; i < test2.size(); ++i) {
+      // -- count dead pixels
+      for (int ix = 0; ix < test2[i]->GetNbinsX(); ++ix) {
+        for (int iy = iRow; iy < iRow+2; ++iy) {
+          if (test2[i]->GetBinContent(ix+1, iy+1) < nTrig) {
+            rowOk = false;
+          }
+        }
+      }
+    }
+    if (rowOk) {
+      break;
+    } else {
+      LOG(logINFO) << "can't use row " << iRow << " because of inefficienct pixels, test next row...";
+      iRow++;
+    }
+  }
+
+  if (rowOk) {
+    LOG(logINFO) << "use row" << iRow << "+";
+    fParRowOffset = iRow;
+  }
+
+  restoreDacs(); 
+}
+
 // ----------------------------------------------------------------------
 void PixTestDoubleColumn::doTest() {
 
@@ -317,6 +365,7 @@ void PixTestDoubleColumn::doTest() {
   PixTest::update(); 
   bigBanner(Form("PixTestDoubleColumn::doTest()"));
 
+  findWorkingRows();
   testData();
 
   int seconds = t.RealTime(); 

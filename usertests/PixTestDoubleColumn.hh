@@ -21,10 +21,12 @@ public:
   void testData();
   void resetDaq();
   void testBuffers(std::vector<TH2D*>, int, int);
+  void findWorkingRows();
 private:
 
   int     fParNtrig, fParNpix, fParDelay; 
   int     fParTsMin,fParTsMax;
+  int     fParRowOffset;
   vector<pxar::Event> fParDaqDat;
   bool fParDaqDatRead;
 
