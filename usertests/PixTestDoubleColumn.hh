@@ -17,12 +17,16 @@ public:
 
   void runCommand(std::string); 
   void doTest();
-  std::vector< std::vector<int> > readData() ;
+  std::vector< std::vector<int> > readData(int) ;
   void testData();
+  void resetDaq();
+  void testBuffers(std::vector<TH2D*>, int, int);
 private:
 
   int     fParNtrig, fParNpix, fParDelay; 
   int     fParTsMin,fParTsMax;
+  vector<pxar::Event> fParDaqDat;
+  bool fParDaqDatRead;
 
   ClassDef(PixTestDoubleColumn, 1)
 

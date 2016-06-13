@@ -30,7 +30,7 @@ data                button
 */
 
 // ----------------------------------------------------------------------
-PixTestDoubleColumn::PixTestDoubleColumn(PixSetup *a, std::string name) : PixTest(a, name), fParNtrig(1), fParNpix(1), fParDelay(1000),fParTsMin(0),fParTsMax(23) {
+PixTestDoubleColumn::PixTestDoubleColumn(PixSetup *a, std::string name) : PixTest(a, name), fParNtrig(1), fParNpix(1), fParDelay(1000),fParTsMin(0),fParTsMax(23),fParDaqDatRead(false) {
   PixTest::init();
   init(); 
   //  LOG(logINFO) << "PixTestDoubleColumn ctor(PixSetup &a, string, TGTab *)";
@@ -122,35 +122,42 @@ PixTestDoubleColumn::~PixTestDoubleColumn() {
 }
 
 
-std::vector< std::vector<int> > PixTestDoubleColumn::readData() {
-  vector<pxar::Event> daqdat;
-  try { daqdat = fApi->daqGetEventBuffer(); }
-  catch(pxar::DataNoEvent &) {}
+void PixTestDoubleColumn::resetDaq() {
+fParDaqDatRead = false;
+}
+
+std::vector< std::vector<int> > PixTestDoubleColumn::readData(int nEv) {
+
+  if (!fParDaqDatRead) {
+    try { 
+      fParDaqDat = fApi->daqGetEventBuffer(); 
+      fParDaqDatRead = true;
+    }
+    catch(pxar::DataNoEvent &) {}
+  }
   
   int nRocs = fApi->_dut->getNEnabledRocs();
   std::vector<int> doubleColumnHitsRoc(52,0);
   std::vector< std::vector<int> > doubleColumnHits(nRocs, doubleColumnHitsRoc);
 
-  for (std::vector<pxar::Event>::iterator it = daqdat.begin(); it != daqdat.end(); ++it) {
+  //for (std::vector<pxar::Event>::iterator it = daqdat.begin(); it != daqdat.end(); ++it) {
+  if (nEv < fParDaqDat.size()) {
+    pxar::Event it = fParDaqDat.at(nEv);
     int idx(0); 
-    for (unsigned int ipix = 0; ipix < it->pixels.size(); ++ipix) {   
-      idx = getIdxFromId(it->pixels[ipix].roc());
-      int doubleColumn = it->pixels[ipix].column() / 2;
+    for (unsigned int ipix = 0; ipix < it.pixels.size(); ++ipix) {   
+      idx = getIdxFromId(it.pixels[ipix].roc());
+      int doubleColumn = it.pixels[ipix].column() / 2;
+      //LOG(logINFO) << "col " << (int)it.pixels[ipix].column();
       doubleColumnHits[idx][doubleColumn]++;
     }
   }
+  //}
   return doubleColumnHits;
 }
 
-void PixTestDoubleColumn::testData() {
-  cacheDacs();
 
-  TH2D* hX[32];
+void PixTestDoubleColumn::testBuffers(std::vector<TH2D*> hX, int tsMin, int tsMax) {
   int nRocs = fApi->_dut->getNEnabledRocs();
-
-  for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
-    hX[iRocIdx] = bookTH2D(Form("hits_C%d", getIdFromIdx(iRocIdx)),  Form("hits_C%d", getIdFromIdx(iRocIdx)),  26, 0, 26.0, fParTsMax-fParTsMin+1, fParTsMin, fParTsMax+1);
-  }
 
   fApi->_dut->testAllPixels(false);
   fApi->_dut->maskAllPixels(true);
@@ -161,93 +168,129 @@ void PixTestDoubleColumn::testData() {
   fApi->setDAC("wbc", wbc);
   resetROC();
 
-  for (int nTestTimestamps=fParTsMin;nTestTimestamps<fParTsMax+1;nTestTimestamps++) {
+  fPg_setup.clear();
+  resetROC();
+
+  for (int nTestTimestamps=tsMin;nTestTimestamps<tsMax+1;nTestTimestamps++) {
     LOG(logINFO) << "#timestamps =  " << (int)nTestTimestamps << ", #hits = " << nTestTimestamps*fParNpix;
-    resetROC();
     // -- pattern generator setup without resets
-    fPg_setup.clear();
     fPg_setup.push_back(std::make_pair("resetroc",15));    // PG_REST
+    fPg_setup.push_back(std::make_pair("delay",15));    // PG_REST
     for (int i=0;i<nTestTimestamps;i++) {
-    fPg_setup.push_back(std::make_pair("delay",15));    // PG_REST
-    fPg_setup.push_back(std::make_pair("calibrate",50)); // PG_CAL
+    fPg_setup.push_back(std::make_pair("calibrate",65)); // PG_CAL
     }
-    fPg_setup.push_back(std::make_pair("delay",15));    // PG_REST
     fPg_setup.push_back(std::make_pair("calibrate",wbc+delay)); // PG_CAL
-    fPg_setup.push_back(std::make_pair("trigger;sync",0));     // PG_TRG PG_SYNC
-
-    int period = 1850;
-    LOG(logDEBUG) << "set pattern generator to:";
-    for (unsigned int i = 0; i < fPg_setup.size(); ++i) LOG(logDEBUG) << fPg_setup[i].first << ": " << (int)fPg_setup[i].second;
-    fApi->setPatternGenerator(fPg_setup);
-
-    for (int iDcTest=0;iDcTest<26;iDcTest++) {
-      LOG(logDEBUG) << "testing double column " << (int)iDcTest;
-      if (fParNpix == 1) {
-        fApi->_dut->testPixel(2*iDcTest,10,true);
-        fApi->_dut->maskPixel(2*iDcTest,10,false);
-      } else if (fParNpix == 2) {
-        fApi->_dut->testPixel(2*iDcTest,10,true);
-        fApi->_dut->maskPixel(2*iDcTest,10,false);
-        fApi->_dut->testPixel(2*iDcTest+1,10,true);
-        fApi->_dut->maskPixel(2*iDcTest+1,10,false);
-      } else if (fParNpix == 3) {
-        fApi->_dut->testPixel(2*iDcTest,10,true);
-        fApi->_dut->maskPixel(2*iDcTest,10,false);
-        fApi->_dut->testPixel(2*iDcTest+1,10,true);
-        fApi->_dut->maskPixel(2*iDcTest+1,10,false);
-        fApi->_dut->testPixel(2*iDcTest,11,true);
-        fApi->_dut->maskPixel(2*iDcTest,11,false);
-      } else {
-        fApi->_dut->testPixel(2*iDcTest,10,true);
-        fApi->_dut->maskPixel(2*iDcTest,10,false);
-        fApi->_dut->testPixel(2*iDcTest+1,10,true);
-        fApi->_dut->maskPixel(2*iDcTest+1,10,false);
-        fApi->_dut->testPixel(2*iDcTest,11,true);
-        fApi->_dut->maskPixel(2*iDcTest,11,false);
-        fApi->_dut->testPixel(2*iDcTest+1,11,true);
-        fApi->_dut->maskPixel(2*iDcTest+1,11,false);
-      }
-
-      // DAQ
-      fApi->daqStart();
-      fApi->daqTrigger(1, period);
-      fApi->daqStop();
-      std::vector< std::vector<int> > doubleColumnHits;
-      doubleColumnHits = readData();
-
-      // fill histograms
-      for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
-        for (int iDc=0;iDc<26;iDc++) {
-            hX[iRocIdx]->Fill(iDc+0.1, nTestTimestamps+0.1, doubleColumnHits[iRocIdx][iDc]);
-        }
-      }
-
-      if (fParNpix == 1) {
-        fApi->_dut->testPixel(2*iDcTest,10,false);
-        fApi->_dut->maskPixel(2*iDcTest,10,true);
-      } else if (fParNpix == 2) {
-        fApi->_dut->testPixel(2*iDcTest,10,false);
-        fApi->_dut->maskPixel(2*iDcTest,10,true);
-        fApi->_dut->testPixel(2*iDcTest+1,10,false);
-        fApi->_dut->maskPixel(2*iDcTest+1,10,true);
-      } else if (fParNpix == 3) {
-        fApi->_dut->testPixel(2*iDcTest,10,false);
-        fApi->_dut->maskPixel(2*iDcTest,10,true);
-        fApi->_dut->testPixel(2*iDcTest+1,10,false);
-        fApi->_dut->maskPixel(2*iDcTest+1,10,true);
-        fApi->_dut->testPixel(2*iDcTest,11,false);
-        fApi->_dut->maskPixel(2*iDcTest,11,true);
-      } else {
-        fApi->_dut->testPixel(2*iDcTest,10,false);
-        fApi->_dut->maskPixel(2*iDcTest,10,true);
-        fApi->_dut->testPixel(2*iDcTest+1,10,false);
-        fApi->_dut->maskPixel(2*iDcTest+1,10,true);
-        fApi->_dut->testPixel(2*iDcTest,11,false);
-        fApi->_dut->maskPixel(2*iDcTest,11,true);
-        fApi->_dut->testPixel(2*iDcTest+1,11,false);
-        fApi->_dut->maskPixel(2*iDcTest+1,11,true);
-      }
+    if (nTestTimestamps == tsMax) {
+      fPg_setup.push_back(std::make_pair("trigger;sync",0));     // PG_TRG PG_SYNC
+    } else {
+      fPg_setup.push_back(std::make_pair("trigger;sync",250));     // PG_TRG PG_SYNC
+      fPg_setup.push_back(std::make_pair("delay",250));    // PG_REST
     }
+
+}
+
+  int period = 22000;
+  LOG(logDEBUG) << "set pattern generator to:";
+  for (unsigned int i = 0; i < fPg_setup.size(); ++i) LOG(logDEBUG) << fPg_setup[i].first << ": " << (int)fPg_setup[i].second;
+  fApi->setPatternGenerator(fPg_setup);
+
+  for (int iDcTest=0;iDcTest<26;iDcTest++) {
+    LOG(logINFO) << "testing double column " << (int)iDcTest;
+    if (fParNpix == 1) {
+      fApi->_dut->testPixel(2*iDcTest,10,true);
+      fApi->_dut->maskPixel(2*iDcTest,10,false);
+    } else if (fParNpix == 2) {
+      fApi->_dut->testPixel(2*iDcTest,10,true);
+      fApi->_dut->maskPixel(2*iDcTest,10,false);
+      fApi->_dut->testPixel(2*iDcTest+1,10,true);
+      fApi->_dut->maskPixel(2*iDcTest+1,10,false);
+    } else if (fParNpix == 3) {
+      fApi->_dut->testPixel(2*iDcTest,10,true);
+      fApi->_dut->maskPixel(2*iDcTest,10,false);
+      fApi->_dut->testPixel(2*iDcTest+1,10,true);
+      fApi->_dut->maskPixel(2*iDcTest+1,10,false);
+      fApi->_dut->testPixel(2*iDcTest,11,true);
+      fApi->_dut->maskPixel(2*iDcTest,11,false);
+    } else {
+      fApi->_dut->testPixel(2*iDcTest,10,true);
+      fApi->_dut->maskPixel(2*iDcTest,10,false);
+      fApi->_dut->testPixel(2*iDcTest+1,10,true);
+      fApi->_dut->maskPixel(2*iDcTest+1,10,false);
+      fApi->_dut->testPixel(2*iDcTest,11,true);
+      fApi->_dut->maskPixel(2*iDcTest,11,false);
+      fApi->_dut->testPixel(2*iDcTest+1,11,true);
+      fApi->_dut->maskPixel(2*iDcTest+1,11,false);
+    }
+
+    // DAQ
+    fApi->daqStart();
+    fApi->daqTrigger(1, period);
+    fApi->daqStop();
+    std::vector< std::vector<int> > doubleColumnHits;
+
+    // fill histograms
+    int iEv=0;
+    for (int nTestTimestamps=tsMin;nTestTimestamps<tsMax+1;nTestTimestamps++) {
+      doubleColumnHits = readData(iEv);
+      for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
+        hX[iRocIdx]->Fill(iDcTest+0.1, nTestTimestamps+0.1, doubleColumnHits[iRocIdx][iDcTest]);
+      }
+      iEv++;
+    }
+    resetDaq();
+
+    if (fParNpix == 1) {
+      fApi->_dut->testPixel(2*iDcTest,10,false);
+      fApi->_dut->maskPixel(2*iDcTest,10,true);
+    } else if (fParNpix == 2) {
+      fApi->_dut->testPixel(2*iDcTest,10,false);
+      fApi->_dut->maskPixel(2*iDcTest,10,true);
+      fApi->_dut->testPixel(2*iDcTest+1,10,false);
+      fApi->_dut->maskPixel(2*iDcTest+1,10,true);
+    } else if (fParNpix == 3) {
+      fApi->_dut->testPixel(2*iDcTest,10,false);
+      fApi->_dut->maskPixel(2*iDcTest,10,true);
+      fApi->_dut->testPixel(2*iDcTest+1,10,false);
+      fApi->_dut->maskPixel(2*iDcTest+1,10,true);
+      fApi->_dut->testPixel(2*iDcTest,11,false);
+      fApi->_dut->maskPixel(2*iDcTest,11,true);
+    } else {
+      fApi->_dut->testPixel(2*iDcTest,10,false);
+      fApi->_dut->maskPixel(2*iDcTest,10,true);
+      fApi->_dut->testPixel(2*iDcTest+1,10,false);
+      fApi->_dut->maskPixel(2*iDcTest+1,10,true);
+      fApi->_dut->testPixel(2*iDcTest,11,false);
+      fApi->_dut->maskPixel(2*iDcTest,11,true);
+      fApi->_dut->testPixel(2*iDcTest+1,11,false);
+      fApi->_dut->maskPixel(2*iDcTest+1,11,true);
+    }
+  }
+}
+
+void PixTestDoubleColumn::testData() {
+  cacheDacs();
+
+  std::vector<TH2D*> hX;
+
+  int nRocs = fApi->_dut->getNEnabledRocs();
+
+  PixTest::update(); 
+  for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
+    TH2D* rocHist  = bookTH2D(Form("npix%d_C%d", fParNpix, getIdFromIdx(iRocIdx)),  Form("npix%d_C%d", fParNpix, getIdFromIdx(iRocIdx)),  26, 0, 26.0, fParTsMax-fParTsMin+1, fParTsMin, fParTsMax+1);
+    hX.push_back(rocHist);
+  }
+
+  int ts=fParTsMin;
+  int tsTo=fParTsMin;
+
+  while (ts <= fParTsMax) {
+    tsTo = ts+12;
+    if (tsTo>fParTsMax) {
+      tsTo = fParTsMax;
+    }
+    LOG(logINFO) << "testing FROM " << (int)ts << " TO " << (int)tsTo;
+    testBuffers(hX, ts, tsTo);
+    ts = tsTo+1;
   }
 
   for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
@@ -255,6 +298,7 @@ void PixTestDoubleColumn::testData() {
     fHistOptions.insert( make_pair(hX[iRocIdx], "colz")  ); 
   }
 
+  PixTest::update(); 
   fDisplayedHist = find( fHistList.begin(), fHistList.end(), hX[0] );
   (*fDisplayedHist)->Draw("colz");
 
@@ -272,7 +316,6 @@ void PixTestDoubleColumn::doTest() {
   fDirectory->cd();
   PixTest::update(); 
   bigBanner(Form("PixTestDoubleColumn::doTest()"));
-
 
   testData();
 
