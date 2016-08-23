@@ -4,11 +4,26 @@
 #include "PixTestPhRunLut.hh"
 #include "log.h"
 #include "TStopwatch.h"
+#include "PixUtil.hh"
+#include "TGraph.h"
 
 using namespace std;
 using namespace pxar;
 
 ClassImp(PixTestPhRunLut)
+
+/*
+-- PhRunLut
+nloops      1
+nevents     500000
+ntrig       50
+maxhits     1000000
+mpv         checkbox(0)
+kde         checkbox(0)
+linearfit   checkbox(0)
+dumplut     checkbox(0)
+
+*/
 
 //------------------------------------------------------------------------------
 PixTestPhRunLut::PixTestPhRunLut( PixSetup *a, std::string name )
@@ -23,6 +38,8 @@ PixTestPhRunLut::PixTestPhRunLut() : PixTest()
 {
   //  LOG(logDEBUG) << "PixTestPhRunLut ctor()";
 }
+
+
 
 //------------------------------------------------------------------------------
 bool PixTestPhRunLut::setParameter( string parName, string sval )
@@ -44,16 +61,45 @@ bool PixTestPhRunLut::setParameter( string parName, string sval )
 
       if( !parName.compare( "nevents" ) ) {
   fParNevents = atoi( sval.c_str() );
-  LOG(logDEBUG) << "  setting fParNtrig  ->" << fParNtrig
+  LOG(logDEBUG) << "  setting fParNevents  ->" << fParNevents
          << "<- from sval = " << sval;
       }
 
       if( !parName.compare( "nloops" ) ) {
   fParNloops = atoi( sval.c_str() );
-  LOG(logDEBUG) << "  setting fParNtrig  ->" << fParNtrig
+  LOG(logDEBUG) << "  setting fParNloops  ->" << fParNloops
          << "<- from sval = " << sval;
       }
 
+      if( !parName.compare( "maxhits" ) ) {
+  fParMaxHits = atoi( sval.c_str() );
+  LOG(logDEBUG) << "  setting fParMaxHits  ->" << fParMaxHits
+         << "<- from sval = " << sval;
+      }
+
+      if (!parName.compare("mpv")) {
+  PixUtil::replaceAll(sval, "checkbox(", "");
+  PixUtil::replaceAll(sval, ")", "");
+  fParMPV = atoi(sval.c_str());
+      }
+
+      if (!parName.compare("linearfit")) {
+  PixUtil::replaceAll(sval, "checkbox(", "");
+  PixUtil::replaceAll(sval, ")", "");
+  fParLinearFit = atoi(sval.c_str());
+      }
+
+      if (!parName.compare("kde")) {
+  PixUtil::replaceAll(sval, "checkbox(", "");
+  PixUtil::replaceAll(sval, ")", "");
+  fParKDE = atoi(sval.c_str());
+      }
+
+      if (!parName.compare("dumplut")) {
+  PixUtil::replaceAll(sval, "checkbox(", "");
+  PixUtil::replaceAll(sval, ")", "");
+  fParDumpLUT = atoi(sval.c_str());
+      }
 
       break;
     }
@@ -106,6 +152,8 @@ public:
   void fill(std::vector< std::pair<int, int> >);
   void dump();
   std::vector< double > get(int);
+  double get(int, int);
+  double getADCmean(int);
 
 private:
   std::vector< std::vector< uint8_t > > lut;
@@ -117,6 +165,20 @@ void PixPHLut::fill(std::vector< std::pair<int, int> > data) {
   for (int i=0;i<dataLength;i++) {
     lut[data[i].first][data[i].second]++;
   }
+}
+
+double PixPHLut::getADCmean(int Vcal) {
+  long sum=0;
+  int nValues=0;
+  for (int ADC=0;ADC<256;ADC++) {
+    sum += lut[Vcal][ADC] * ADC;
+    nValues += lut[Vcal][ADC];
+  }
+  return (double)sum/(double)nValues;
+}
+
+double PixPHLut::get(int Vcal, int ADC) {
+  return lut[Vcal][ADC];
 }
 
 std::vector< double > PixPHLut::get(int ADC) {
@@ -154,11 +216,29 @@ void PixPHLut::dump() {
 //------------------------------------------------------------------------------
 void PixTestPhRunLut::doTest()
 {
+  enum PhFillMethods {PHFILL_MEAN, PHFILL_MPV, PHFILL_KDE, PHFILL_LINEARFIT};
+  int PhFillMethod = PHFILL_MEAN;
+
   LOG(logINFO) << "PixTestPhRunLut::doTest() ";
 
   fDirectory->cd();
   fHistList.clear();
   PixTest::update();
+
+  if (fParKDE) {
+    PhFillMethod = PHFILL_KDE;
+    LOG(logINFO) << "using fill method: KDE (lut)";
+  }else if (fParLinearFit) {
+    PhFillMethod = PHFILL_LINEARFIT;
+    LOG(logINFO) << "using fill method: LINEARFIT";
+  }else if (fParMPV) {
+    PhFillMethod = PHFILL_MPV;
+    LOG(logINFO) << "using fill method: MPV (lut)";
+  } else {
+    PhFillMethod = PHFILL_MEAN;
+    LOG(logINFO) << "using fill method: MEAN (lut)";
+  }
+
 
   TStopwatch t;
   std::string name = "phRunLut";
@@ -179,6 +259,12 @@ void PixTestPhRunLut::doTest()
     h2->SetDirectory(fDirectory);
     fHitMap.push_back(h2);
 
+    h2 = bookTH2D(Form("chargeMap_%s_C%d", name.c_str(), rocIds[iroc]), Form("chargeMap_%s_C%d", name.c_str(), rocIds[iroc]), 
+      52, 0., 52., 80, 0., 80.);
+    h2->SetMinimum(0.);
+    h2->SetDirectory(fDirectory);
+    fChargeMap.push_back(h2);
+
     h1 = bookTH1D(Form("charge_%s_C%d", name.c_str(), rocIds[iroc]), Form("charge_%s_C%d", name.c_str(), rocIds[iroc]), 1800, 0, 1800);
     h1->SetMinimum(0.);
     h1->SetDirectory(fDirectory);
@@ -186,7 +272,10 @@ void PixTestPhRunLut::doTest()
   }
   copy(fHitMap.begin(), fHitMap.end(), back_inserter(fHistList));
   copy(fCharge.begin(), fCharge.end(), back_inserter(fHistList));
+  copy(fChargeMap.begin(), fChargeMap.end(), back_inserter(fHistList));
 
+  fHistOptions.insert(make_pair(fChargeMap[0], "COLZ")); 
+  fHistOptions.insert(make_pair(fHitMap[0], "COLZ")); 
 
    // -- unmask entire chip and then mask hot pixels
   fApi->_dut->testAllPixels(false);
@@ -201,91 +290,6 @@ void PixTestPhRunLut::doTest()
   }
   LOG(logINFO) << nMaskedPixels << " hot pixels are masked.";
   maskPixels(); 
-
-
-  // test lut...
-
-/*
-  PixPHLut pixlut;
-  LOG(logINFO) << "test 0a";
-  std::vector< std::pair<int, int> > testData;
-  LOG(logINFO) << "test 0b";
-
-  testData.push_back( make_pair(3,1));
-  testData.push_back( make_pair(3,2));
-  testData.push_back( make_pair(3,2));
-  testData.push_back( make_pair(3,3));
-  testData.push_back( make_pair(3,3));
-  testData.push_back( make_pair(3,3));
-  testData.push_back( make_pair(3,3));
-  testData.push_back( make_pair(3,3));
-  testData.push_back( make_pair(3,4));
-  testData.push_back( make_pair(3,7));
-  testData.push_back( make_pair(3,9));
-
-  testData.push_back( make_pair(4,3));
-  testData.push_back( make_pair(4,4));
-  testData.push_back( make_pair(4,4));
-  testData.push_back( make_pair(4,4));
-  testData.push_back( make_pair(4,4));
-  testData.push_back( make_pair(4,4));
-  testData.push_back( make_pair(4,4));
-  testData.push_back( make_pair(4,4));
-  testData.push_back( make_pair(4,4));
-  testData.push_back( make_pair(4,5));
-  testData.push_back( make_pair(4,8));
-  testData.push_back( make_pair(4,9));
-
-  testData.push_back( make_pair(5,4));
-  testData.push_back( make_pair(5,5));
-  testData.push_back( make_pair(5,5));
-  testData.push_back( make_pair(5,5));
-  testData.push_back( make_pair(5,5));
-  testData.push_back( make_pair(5,6));
-
-  testData.push_back( make_pair(6,4));
-  testData.push_back( make_pair(6,4));
-  testData.push_back( make_pair(6,4));
-  testData.push_back( make_pair(6,6));
-  testData.push_back( make_pair(6,5));
-
-  testData.push_back( make_pair(7,6));
-  testData.push_back( make_pair(7,7));
-  testData.push_back( make_pair(7,7));
-  testData.push_back( make_pair(7,7));
-  testData.push_back( make_pair(7,7));
-  testData.push_back( make_pair(7,7));
-  testData.push_back( make_pair(7,7));
-  testData.push_back( make_pair(7,8));
-
-  testData.push_back( make_pair(8,7));
-  testData.push_back( make_pair(8,8));
-  testData.push_back( make_pair(8,8));
-  testData.push_back( make_pair(8,8));
-  testData.push_back( make_pair(8,8));
-  testData.push_back( make_pair(8,8));
-  testData.push_back( make_pair(8,9));
-  testData.push_back( make_pair(8,10));
-
-  LOG(logINFO) << "test 1";
-
-  pixlut.fill(testData);
-
-  LOG(logINFO) << "test 2";
-
-  std::vector< double > returnData(256,0);
-  returnData = pixlut.get(4);
-
-  LOG(logINFO) << "test 3";
-
-  LOG(logINFO) << "ADC=4";
-  for (int i=0;i<returnData.size();i++) {
-    LOG(logINFO) << returnData[i];
-  }
-
-  LOG(logINFO) << "test 4";
-  */
-
 
   // DAQ loop
   int counter = 0;
@@ -404,7 +408,23 @@ void PixTestPhRunLut::doTest()
         iEvent++;
       }
 
-      luts[0].dump();
+      // dump luts as 2d histogram
+      if (fParDumpLUT) {
+        for (int iLut=0;iLut<luts.size();iLut++) {
+          std::stringstream ss;
+          ss << "lut run: " << counter << " pix: " << (int)pixels[iLut].first << "/" << (int)pixels[iLut].second;
+          TH2D* lutHistogram = new TH2D(ss.str().c_str(), ss.str().c_str(), 256, 0, 256.0, 256, 0, 256.0);
+          for (int Vcal=0;Vcal<256;Vcal++) {
+            for (int ADC=0;ADC<256;ADC++) {
+              lutHistogram->SetBinContent(Vcal+1, ADC+1, luts[iLut].get(Vcal, ADC));
+            }
+          }
+          fHistList.push_back(lutHistogram);
+          fHistOptions.insert(make_pair(lutHistogram, "COLZ")); 
+        }
+
+      }
+
       // fill online PH calibrated charge histogram
       for (std::vector<pxar::Event>::iterator it = daqdat.begin(); it != daqdat.end(); ++it) {
         for (int j=0; j<it->pixels.size();  j++) {
@@ -416,17 +436,110 @@ void PixTestPhRunLut::doTest()
               std::vector< double > returnData(256,0);
               returnData = luts[k].get( (int)it->pixels[j].value());
 
-              double chargeMean = 0;
+              if (PhFillMethod == PHFILL_MEAN) {
+                double chargeMean = 0;
+                for (int l=1;l<returnData.size();l++) {
+                  chargeMean += l *returnData[l];
+                }
+                fCharge[0]->Fill(chargeMean);
+                fChargeMap[0]->Fill(it->pixels[j].column(), it->pixels[j].row(), chargeMean);
+                fHitMap[0]->Fill(it->pixels[j].column(), it->pixels[j].row());
+              } else if (PhFillMethod == PHFILL_MPV) {
+                int max = -1;
+                for (int l=1;l<returnData.size();l++) {
+                  if (returnData[l] > max) {
+                    max = returnData[l];
+                  }
+                }
+                long sum=0;
+                int nMaxValues=0;
+                for (int l=1;l<returnData.size();l++) {
+                  if (returnData[l] == max) {
+                    sum += l;
+                    nMaxValues++;
+                  }
+                }
+                double MPV = (double)sum/(double)nMaxValues;
+                fCharge[0]->Fill(MPV);
 
-              /*
-              for (int l=0;l<returnData.size();l++) {
-                chargeMean += l *returnData[l];
-              }
-              fCharge[0]->Fill(chargeMean);
-              */
+                fChargeMap[0]->Fill(it->pixels[j].column(), it->pixels[j].row(), MPV);
+                fHitMap[0]->Fill(it->pixels[j].column(), it->pixels[j].row());
 
-              for (int l=0;l<returnData.size();l++) {
-                fCharge[0]->Fill(l, returnData[l]);
+              } else if (PhFillMethod == PHFILL_KDE) {
+                for (int l=0;l<returnData.size();l++) {
+                  fCharge[0]->Fill(l, returnData[l]);
+                }
+              } else if (PhFillMethod == PHFILL_LINEARFIT) {
+                std::vector<double> calibrationCurve;
+                for (int Vcal=0;Vcal<256;Vcal++) {
+                  calibrationCurve.push_back(luts[k].getADCmean(Vcal));
+                }
+
+                // find plateau
+                int VcalMin=-1;
+                for (int Vcal=0;Vcal<236;Vcal++) {
+                  if (calibrationCurve[Vcal+20] - calibrationCurve[Vcal] > 3 && calibrationCurve[Vcal+20]>0 && calibrationCurve[Vcal]>0) {
+                    VcalMin = Vcal+20;
+                    break;
+                  }
+                }
+
+                // find plateau
+                int VcalMax=-1;
+                for (int Vcal=255;Vcal>20;Vcal--) {
+                  if (calibrationCurve[Vcal] - calibrationCurve[Vcal-20] > 3 && calibrationCurve[Vcal]>0 && calibrationCurve[Vcal-20]>0) {
+                    VcalMax = Vcal-20;
+                    break;
+                  }
+                }
+
+                if (VcalMin > 0 && VcalMax > 0) {
+                  std::vector<double> Vcals;
+                  std::vector<double> ADCs;
+                  for (int Vcal=VcalMin;Vcal<=VcalMax;Vcal++) {
+                    Vcals.push_back(Vcal);
+                    ADCs.push_back(calibrationCurve[Vcal]);
+                  }
+                  std::stringstream ss;
+                  ss << "linear fit run: " << counter << " pix: " << (int)it->pixels[j].column() << "/" << (int)it->pixels[j].row();
+                  TF1* tf1 = new TF1("linearFit","pol1",VcalMin, VcalMax);
+                  tf1->SetParameter(0, 50);
+                  tf1->SetParLimits(0, -500, 500);
+                  tf1->SetParameter(1, 0.2);
+                  tf1->SetParLimits(1, 0.01, 2.0);
+
+                  TH1D * th1 = new TH1D(ss.str().c_str(), ss.str().c_str(), 256, 0, 256);
+                  for (int Vcal=VcalMin;Vcal<=VcalMax;Vcal++) {
+                    th1->SetBinContent(1+Vcal, calibrationCurve[Vcal]);
+                  }
+
+                  th1->Fit(tf1, "QBRS");
+                  double p0 = tf1->GetParameter(0);
+                  double p1 = tf1->GetParameter(1);
+
+                  if (fParDumpLUT) {
+                    th1->Draw();
+                    //th1->Fit(tf1, "QBRS");
+                    tf1->Draw("same");
+                    fHistList.push_back(th1);
+                  }
+
+                  double Vcal=0;
+                  if (p1 != 0) {
+                    Vcal = (it->pixels[j].value() - p0)/p1;
+                    LOG(logINFO) << "ADC " << it->pixels[j].value() << " -> " << Vcal << " p0: " << p0 << " p1:" << p1;
+                    fCharge[0]->Fill(Vcal);
+
+                    fChargeMap[0]->Fill(it->pixels[j].column(), it->pixels[j].row(), Vcal);
+                    fHitMap[0]->Fill(it->pixels[j].column(), it->pixels[j].row());
+                  }
+
+                } else {
+                 LOG(logWARNING) << "pixel" << (int)it->pixels[j].column() << "/" << (int)it->pixels[j].row() << " PH curve: no linear part found.";
+                }
+
+
+
               }
 
               break;

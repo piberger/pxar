@@ -20,10 +20,17 @@ private:
   int     fParNtrig;
   int     fParNevents;
   int     fParNloops;
+  bool    fParMPV;
+  bool    fParKDE;
+  bool    fParLinearFit;
+  int     fParMaxHits;
+  bool    fParDumpLUT;
+
   std::vector<std::pair<int, int> > fPIX;
 
   std::vector<TH2D*> fHitMap;
   std::vector<TH1D*> fCharge;
+  std::vector<TH2D*> fChargeMap;
 
   std::vector<std::pair<std::string, uint8_t> > fPg_setup;
   ClassDef(PixTestPhRunLut, 1)

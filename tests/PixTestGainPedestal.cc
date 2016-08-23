@@ -213,6 +213,8 @@ void PixTestGainPedestal::measure() {
   fHpoints.push_back(200); 
 
 
+  //fHpoints.clear();
+
   cacheDacs();
  
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 

@@ -757,7 +757,7 @@ void PixTestXray::processData(uint16_t numevents) {
   LOG(logDEBUG) << "Processing Data: " << daqdat.size() << " events.";
   
   int idx(-1); 
-  uint16_t q; 
+  double q; 
   for (std::vector<pxar::Event>::iterator it = daqdat.begin(); it != daqdat.end(); ++it) {
     ++evtCnt;
     pixCnt += it->pixels.size(); 
@@ -786,7 +786,9 @@ void PixTestXray::processData(uint16_t numevents) {
 	q = 0;
       }
       fHmap[idx]->Fill(it->pixels[ipix].column(), it->pixels[ipix].row());
-      fQ[idx]->Fill(q);
+      if (q>0) {
+        fQ[idx]->Fill(q);
+      }
       fQmap[idx]->Fill(it->pixels[ipix].column(), it->pixels[ipix].row(), q);
 
       fPHmap[idx]->Fill(it->pixels[ipix].column(), it->pixels[ipix].row(), it->pixels[ipix].value());
