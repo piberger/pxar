@@ -367,7 +367,7 @@ void PixTestOnShellQuickTest::hvQuickTest() {
       }
     }
 
-    int deltaInefficienctPixelsRoc = inefficientPixelsHV - inefficientPixels;
+    int deltaInefficienctPixelsRoc = inefficientPixels - inefficientPixelsHV;
     deltaInefficienctPixels.push_back(deltaInefficienctPixelsRoc);
   }
 
