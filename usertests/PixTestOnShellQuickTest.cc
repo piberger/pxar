@@ -129,17 +129,34 @@ void PixTestOnShellQuickTest::doTest() {
   LOG(logINFO) << "PixTestOnShellQuickTest::doTest() done, duration: " << seconds << " seconds";
 }
 
-std::vector<int> PixTestOnShellQuickTest::readBBvthrcomp() {
+
+std::vector<int> PixTestOnShellQuickTest::readParametersFile(std::string fileName) {
   std::vector<int> values;
-  std::string bbVthrcompFileName = fPixSetup->getConfigParameters()->getDirectory() + string("/bumpBondingVthrcomp.dat");
-  std::ifstream bbVthrcompFile(bbVthrcompFileName, std::ifstream::in);
+  std::string parametersFileName = fPixSetup->getConfigParameters()->getDirectory() + "/" + fileName;
+  std::ifstream parametersFile(parametersFileName, std::ifstream::in);
   std::string line;
-  while(std::getline(bbVthrcompFile, line)) {
-    int bbVthrcomp = stoi(line);
-    values.push_back(bbVthrcomp);
+  while(std::getline(parametersFile, line)) {
+    int par = stoi(line);
+    values.push_back(par);
   }
   return values;
 }
+
+
+std::vector<int> PixTestOnShellQuickTest::readBBvthrcomp() {
+  return readParametersFile("bumpBondingVthrcomp.dat");
+}
+
+
+std::vector<int> PixTestOnShellQuickTest::readDbVana() {
+  return readParametersFile("dbPretestVana.dat");
+}
+
+
+std::vector<int> PixTestOnShellQuickTest::readDbCaldel() {
+  return readParametersFile("dbPretestCaldel.dat");
+}
+
 
 // ----------------------------------------------------------------------
 void PixTestOnShellQuickTest::bbQuickTest() {
@@ -170,6 +187,35 @@ void PixTestOnShellQuickTest::bbQuickTest() {
   // bump bonding map
   fApi->setDAC("ctrlreg", 4);
   fApi->setDAC("vcal", fParVcalS);
+
+
+  std::vector<int> dbVana = readDbVana();
+  if (dbVana.size() >= aliveMaps.size()) {
+    LOG(logINFO) << "using Vana from file: ";
+    std::stringstream ss;
+    ss << "Vana:";
+    for (unsigned int idxRoc = 0; idxRoc < dbVana.size(); idxRoc++) {
+      ss << dbVana[idxRoc] << "  ";
+    }
+    LOG(logINFO) << ss.str();
+    for (unsigned int idxRoc = 0; idxRoc < dbVana.size(); idxRoc++) {
+      fApi->setDAC("vana", dbVana[getIdFromIdx(idxRoc)], getIdFromIdx(idxRoc));
+    }
+  }
+
+  std::vector<int> dbCaldel = readDbCaldel();
+  if (dbCaldel.size() >= aliveMaps.size()) {
+    LOG(logINFO) << "using Caldel from file: ";
+    std::stringstream ss;
+    ss << "Caldel:";
+    for (unsigned int idxRoc = 0; idxRoc < dbCaldel.size(); idxRoc++) {
+      ss << dbCaldel[idxRoc] << "  ";
+    }
+    LOG(logINFO) << ss.str();
+    for (unsigned int idxRoc = 0; idxRoc < dbCaldel.size(); idxRoc++) {
+      fApi->setDAC("caldel", dbCaldel[getIdFromIdx(idxRoc)], getIdFromIdx(idxRoc));
+    }
+  }
 
   std::vector<int> bbVthrcompsRoc = readBBvthrcomp();
   if (bbVthrcompsRoc.size() >= aliveMaps.size()) {
@@ -240,13 +286,29 @@ void PixTestOnShellQuickTest::bbQuickTest() {
   fDisplayedHist = find( fHistList.begin(), fHistList.end(), bbMaps[0] );
   (*fDisplayedHist)->Draw("colz");
 
+  // database comparison
+  std::vector<int> dbBumpDefects = readParametersFile("databaseBumpDefects.dat");
+
+  if (dbBumpDefects.size() > 0) {
+
+    std::stringstream ss;
+    LOG(logINFO) << "results from database:";
+    ss << "Dead bumps per ROC: ";
+    for (unsigned int idxRoc=0;idxRoc<dbBumpDefects.size();idxRoc++) {
+      ss << dbBumpDefects[idxRoc] << "  ";
+    }
+    LOG(logINFO) << ss.str();
+  }
+
   // print output
   std::stringstream ss;
+  LOG(logINFO) << "quicktest:";
   ss << "Dead bumps per ROC: ";
   for (unsigned int idxRoc=0;idxRoc<nDeadBumps.size();idxRoc++) {
     ss << nDeadBumps[idxRoc] << "  ";
   }
   LOG(logINFO) << ss.str();
+
 
   restoreDacs();
   PixTest::update();
@@ -309,7 +371,7 @@ void PixTestOnShellQuickTest::hvQuickTest() {
     deltaInefficienctPixels.push_back(deltaInefficienctPixelsRoc);
   }
 
-  // BB defects per ROC histogram
+  // delta alive per ROC histogram
   TH1D* deltaAlivePerRoc = bookTH1D("delta_alive_hv", "delta_alive_hv", 16, 0, 16.0);
   for (unsigned int idxRoc=0;idxRoc<deltaInefficienctPixels.size();idxRoc++) {
     deltaAlivePerRoc->SetBinContent(1+getIdFromIdx(idxRoc), deltaInefficienctPixels[idxRoc]);

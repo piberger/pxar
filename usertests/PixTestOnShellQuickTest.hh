@@ -20,6 +20,9 @@ public:
     void bbQuickTest();
     void hvQuickTest();
     std::vector<int> readBBvthrcomp();
+    std::vector<int> readDbVana();
+    std::vector<int> readDbCaldel();
+    std::vector<int> readParametersFile(std::string fileName);
 
 private:
 
