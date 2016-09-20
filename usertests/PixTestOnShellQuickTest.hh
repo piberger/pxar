@@ -17,8 +17,15 @@ public:
 
     void doTest();
 
+    void programROC();
+    void setVana();
+    void findTiming();
+    void findWorkingPixel();
+    void setVthrCompCalDel();
     void bbQuickTest();
     void hvQuickTest();
+
+
     std::vector<int> readBBvthrcomp();
     std::vector<int> readDbVana();
     std::vector<int> readDbCaldel();
@@ -29,6 +36,11 @@ private:
     int fParNtrig;
     int fBBVthrcomp;
     int fParVcalS;
+    bool fProblem;
+
+    int     fTargetIa;
+    int     fParVcal, fParDeltaVthrComp;
+    double  fParFracCalDel;
 
     ClassDef(PixTestOnShellQuickTest, 1)
 
