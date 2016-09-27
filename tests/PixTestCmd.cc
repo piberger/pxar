@@ -1300,77 +1300,92 @@ int CmdProc::tctscan(unsigned int tctmin, unsigned int tctmax){
 int CmdProc::tbmscan(const int nloop, const int ntrig, const int ftrigkhz){
     //string tbmtype = fApi->_dut->getTbmType(); //"tbm09c"
 
-    uint8_t phasereg;
-    int stat = tbmget("basee", TBMA, phasereg);
-    if(stat>0){
-        out << "error getting tbm delays from api \n";
-    }
-    uint8_t p400c= (phasereg>>2) & 7;
-    uint8_t p160c= (phasereg>>5) & 7;
-    
-    uint8_t ntpreg;
-    stat = tbmget("base0", TBMA, ntpreg);
-    if(stat>0){
-        out << "error getting base0 register from api \n";
-    }
-    
-    int nroc=16;
-    if( (ntpreg & 0x40) > 0 ){
-        nroc=0;
-    }
+    uint8_t tbm_map[2] = {TBM0A, TBM1A};
 
-    // show the phase delays in time-ordered manner
-    int p160_timed[8] = {0,1,2,3,4,5,6,7};
-    sort_time(p160_timed, STEP160, RANGE160);
-    out << "400\\160";
-    for(uint8_t i = 0; i < sizeof(p160_timed); i++) {
-        out << " " << i << " ";
-    }
-    out << "\n";
-    int p400_timed[8] = {0,1,2,3,4,5,6,7};
-    sort_time(p400_timed, STEP400, RANGE400);
-
-    for(uint8_t p400=0; p400<8; p400++){
-        int xor1[8] = {0,0,0,0,0,0,0,0};
-        int xor2[8] = {0,0,0,0,0,0,0,0};
-        out << "  " << (int) p400_timed[p400] << " :  ";
-        for(uint8_t p160=0; p160<8; p160++){
-            stat = tbmset("basee", TBMA, ((p160_timed[p160]&7)<<5)+((p400_timed[p400]&7)<<2));
-            if(stat>0){
-                out << "error setting delay  base E " << hex << (int) ((p160_timed[p160]<<5)+(p400_timed[p400]<<2)) << dec << "\n";
-            }
-            tbmset("base4", ALLTBMS, 0x10);// reset once after changing phases
-            
-            // waste a bit of time keeping the daq busy
-            pxar::mDelay(10);
-            int good= countGood(nloop, ntrig, ftrigkhz, nroc); //default 10 loops, 100 trigger, 10 kHz
-            for(unsigned int i=0; i<8; i++){
-                xor1[i] += good*fDeser400XOR1sum[i];
-                xor2[i] += good*fDeser400XOR2sum[i];
-            }
-            char c=' ';
-            if (good==nloop){ c='+';} 
-            else if (good>(0.7*nloop)) { c='o' ;}
-            else if (good>0) { c='.' ;}
-            
-            if((p160_timed[p160]==p160c)&&(p400_timed[p400]==p400c)){
-               out << "(" << c << ")";
-            }else{
-               out << " " << c << " ";
-            }
+    for(uint8_t tbm = 0; tbm < fApi->_dut->getNEnabledTbms() / 2; tbm++) {
+        // "disable" the other tbm and store the original values at the end
+        uint8_t disabled_tbm = ((tbm + 1) % 2);
+        uint8_t disabled_basee;
+        int stat_disabled= tbmget("basee", tbm_map[disabled_tbm], disabled_basee);
+        if (stat_disabled > 0) {
+            out << "error getting tbm delays from api \n";
         }
-        
-        // only print phases when they can be real
-        if( (ntpreg & 0x40) == 0 ){
-            out << "    ";
-            for(unsigned int i=0; i<8; i++){
-                out << dec<< setw(5) << xor1[7-i]+xor2[7-i];
-            }
+
+        uint8_t phasereg;
+        int stat = tbmget("basee", tbm_map[tbm], phasereg);
+        if (stat > 0) {
+            out << "error getting tbm delays from api \n";
+        }
+        uint8_t p400c = (phasereg >> 2) & 7;
+        uint8_t p160c = (phasereg >> 5) & 7;
+
+        uint8_t ntpreg;
+        stat = tbmget("base0", tbm_map[tbm], ntpreg);
+        if (stat > 0) {
+            out << "error getting base0 register from api \n";
+        }
+
+        int nroc = 16;
+        if ((ntpreg & 0x40) > 0) {
+            nroc = 0;
+        }
+
+        // show the phase delays in time-ordered manner
+        int p160_timed[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+        sort_time(p160_timed, STEP160, RANGE160);
+        out << "\nTBM " << int(tbm) << "\n";
+        out << "400\\160";
+        for (uint8_t i = 0; i < 8; i++) {
+            out << " " << p160_timed[i] << " ";
         }
         out << "\n";
-        flush(out);
+        int p400_timed[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+        sort_time(p400_timed, STEP400, RANGE400);
+
+        for (uint8_t p400 = 0; p400 < 8; p400++) {
+            int xor1[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+            int xor2[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+            out << "  " << (int) p400_timed[p400] << " :  ";
+            for (uint8_t p160 = 0; p160 < 8; p160++) {
+                stat = tbmset("basee", tbm_map[tbm], ((p160_timed[p160] & 7) << 5) + ((p400_timed[p400] & 7) << 2));
+                if (stat > 0) {
+                    out << "error setting delay  base E " << hex
+                        << (int) ((p160_timed[p160] << 5) + (p400_timed[p400] << 2)) << dec << "\n";
+                }
+                tbmset("base4", ALLTBMS, 0x10);// reset once after changing phases
+
+                // waste a bit of time keeping the daq busy
+                pxar::mDelay(10);
+                int good = countGood(nloop, ntrig, ftrigkhz, nroc); //default 10 loops, 100 trigger, 10 kHz
+                for (unsigned int i = 0; i < 8; i++) {
+                    xor1[i] += good * fDeser400XOR1sum[i];
+                    xor2[i] += good * fDeser400XOR2sum[i];
+                }
+                char c = ' ';
+                if (good == nloop) { c = '+'; }
+                else if (good > (0.7 * nloop)) { c = 'o'; }
+                else if (good > 0) { c = '.'; }
+
+                if ((p160_timed[p160] == p160c) && (p400_timed[p400] == p400c)) {
+                    out << "(" << c << ")";
+                } else {
+                    out << " " << c << " ";
+                }
+            }
+
+            // only print phases when they can be real
+            if ((ntpreg & 0x40) == 0) {
+                out << "    ";
+                for (unsigned int i = 0; i < 8; i++) {
+                    out << dec << setw(5) << xor1[7 - i] + xor2[7 - i];
+                }
+            }
+            out << "\n";
+            flush(out);
+        }
+        tbmset("basee", tbm_map[tbm], phasereg);
+        tbmset("basee", tbm_map[disabled_tbm], disabled_basee);
     }
-    tbmset("basee",TBMA,phasereg);
     return 0;
 }
 
