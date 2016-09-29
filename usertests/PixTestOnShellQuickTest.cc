@@ -157,8 +157,8 @@ void PixTestOnShellQuickTest::doTest() {
   findTiming();
   findWorkingPixel();
   setVthrCompCalDel();
-  hvQuickTest();
   bbQuickTest();
+  hvQuickTest();
 
   int seconds = t.RealTime();
   LOG(logINFO) << "PixTestOnShellQuickTest::doTest() done, duration: " << seconds << " seconds";
@@ -265,7 +265,7 @@ void PixTestOnShellQuickTest::bbQuickTest() {
     LOG(logINFO) << ss.str();
 
     for (unsigned int idxRoc=0;idxRoc<aliveMaps.size();idxRoc++) {
-      fApi->setDAC("vthrcomp", bbVthrcompsRoc[getIdFromIdx(idxRoc)], getIdFromIdx(idxRoc));
+      fApi->setDAC("vthrcomp", bbVthrcompsRoc[getIdFromIdx(idxRoc)]+5, getIdFromIdx(idxRoc));
     }
 
   } else {
@@ -377,13 +377,15 @@ void PixTestOnShellQuickTest::hvQuickTest() {
   fApi->_dut->maskAllPixels(false);
   maskPixels();
 
+  // pixel alive WITH HV
+  fApi->HVon();
+  vector<TH2D*> aliveMapsHV = efficiencyMaps("PixelAlive", nTrig, FLAG_FORCE_MASKED);
+
   // pixel alive WITHOUT HV
   fApi->HVoff();
   vector<TH2D*> aliveMaps = efficiencyMaps("PixelAlive", nTrig, FLAG_FORCE_MASKED);
 
-  // pixel alive WITH HV
   fApi->HVon();
-  vector<TH2D*> aliveMapsHV = efficiencyMaps("PixelAlive", nTrig, FLAG_FORCE_MASKED);
 
   // count inefficient pixzels
   vector<int> deltaInefficienctPixels;
