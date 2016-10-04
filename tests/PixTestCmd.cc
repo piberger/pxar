@@ -4789,7 +4789,6 @@ void PixTestCmd::runCommand(std::string command) {
       cmd->fApi->daqStart(500000,true);
       cmd->fApi->daqStop(true);
   }
-
   PixTest::update();
 
 }

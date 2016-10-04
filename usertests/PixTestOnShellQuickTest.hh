@@ -17,6 +17,7 @@ public:
 
     void doTest();
 
+    void signalTest();
     void programROC();
     void setVana();
     void findTiming();

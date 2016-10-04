@@ -29,6 +29,7 @@ ClassImp(PixTestOnShellQuickTest)
 -- OnShellQuickTest
 ntrig               10
 bbvthrcomp          120
+signaltest          button
 hvtest              button
 bbtest              button
 */
@@ -37,7 +38,7 @@ bbtest              button
 //------------------------------------------------------------------------------
 PixTestOnShellQuickTest::PixTestOnShellQuickTest( PixSetup *a, std::string name) :
 PixTest(a, name), fParNtrig(-1), fBBVthrcomp(-1), fParVcalS(250), fParVcal(200),
-fParDeltaVthrComp(-50),
+fParDeltaVthrComp(50),
 fParFracCalDel(0.5),
 fTargetIa(24)
 {
@@ -113,6 +114,11 @@ void PixTestOnShellQuickTest::runCommand(std::string command) {
     return;
   }
 
+  if (!command.compare("signaltest")) {
+    signalTest();
+    return;
+  }
+
   LOG(logDEBUG) << "did not find command ->" << command << "<-";
 }
 
@@ -152,13 +158,14 @@ void PixTestOnShellQuickTest::doTest() {
   bigBanner(Form("PixTestOnShellQuickTest::doTest()"));
 
   fProblem = false;
+  signalTest();
   programROC();
   setVana();
   findTiming();
   findWorkingPixel();
   setVthrCompCalDel();
-  bbQuickTest();
   hvQuickTest();
+  bbQuickTest();
 
   int seconds = t.RealTime();
   LOG(logINFO) << "PixTestOnShellQuickTest::doTest() done, duration: " << seconds << " seconds";
@@ -192,16 +199,39 @@ std::vector<int> PixTestOnShellQuickTest::readDbCaldel() {
   return readParametersFile("dbPretestCaldel.dat");
 }
 
+// ----------------------------------------------------------------------
+void PixTestOnShellQuickTest::signalTest() {
+  std::string cmdString = "adctest > " + fPixSetup->getConfigParameters()->getDirectory() + "/adctest.log";
+  banner(Form("PixTestOnShellQuickTest::signalTest() "));
+  PixTestFactory *factory = PixTestFactory::instance();
+  PixTest *t =  factory->createTest("cmd", fPixSetup);
+  t->runCommand(cmdString);
+  delete t;
+  std::string adcFileName = fPixSetup->getConfigParameters()->getDirectory() + "/adctest.log";
+  ifstream adcFile(adcFileName);
+  if (adcFile) {
+    std::string line;
+    while (std::getline(adcFile, line)) {
+        LOG(logINFO) << line;
+    }
+    adcFile.close();
+  }
+
+}
 
 // ----------------------------------------------------------------------
 void PixTestOnShellQuickTest::bbQuickTest() {
 
   cacheDacs();
+  int bbVthrcompMax = 105; //limit threshold to prevent noisy rocs
 
   banner(Form("PixTestOnShellQuickTest::bbQuickTest()"));
   if (fBBVthrcomp < 0) {
     LOG(logWARNING) << "no Vthrcomp cut defined, using default value!";
-    fBBVthrcomp = 120;
+    fBBVthrcomp = 105;
+  }
+  if (fBBVthrcomp > bbVthrcompMax) {
+    fBBVthrcomp = bbVthrcompMax;
   }
   int nTrig = fParNtrig;
   if (nTrig < 2) {
@@ -265,6 +295,9 @@ void PixTestOnShellQuickTest::bbQuickTest() {
     LOG(logINFO) << ss.str();
 
     for (unsigned int idxRoc=0;idxRoc<aliveMaps.size();idxRoc++) {
+      if (bbVthrcompsRoc[getIdFromIdx(idxRoc)] > bbVthrcompMax) {
+      bbVthrcompsRoc[getIdFromIdx(idxRoc)] = bbVthrcompMax;
+      }
       fApi->setDAC("vthrcomp", bbVthrcompsRoc[getIdFromIdx(idxRoc)]+5, getIdFromIdx(idxRoc));
     }
 
@@ -360,6 +393,7 @@ void PixTestOnShellQuickTest::hvQuickTest() {
   // save DACs
   cacheDacs();
 
+  PixTest::update();
   // save HV on/off state
   bool hvOn = false;
   if (fPixSetup->getConfigParameters()->getHvOn()) {

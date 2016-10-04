@@ -26,10 +26,11 @@
 #include "PixGui.hh"
 #include "PixSetup.hh"
 #include "PixUtil.hh"
-
+#include "timer.h"
 #include "api.h"
 #include "log.h"
 #include "helper.h"
+#include "TStopwatch.h"
 
 using namespace std;
 using namespace pxar;
@@ -53,6 +54,7 @@ int main(int argc, char *argv[]){
     doUpdateRootFile(false),
     doUseRootLogon(false)
     ;
+    bool checkHubID = false;
   for (int i = 0; i < argc; i++){
     if (!strcmp(argv[i],"-h")) {
       cout << "List of arguments:" << endl;
@@ -81,6 +83,7 @@ int main(int argc, char *argv[]){
     if (!strcmp(argv[i],"-u"))                                {doUpdateRootFile = true;}
     if (!strcmp(argv[i],"-v"))                                {verbosity  = string(argv[++i]); }
     if (!strcmp(argv[i],"-L"))                                {Log::logName(string(argv[++i]));}
+    if (!strcmp(argv[i],"-H"))                                {checkHubID = true;}
   }
 
   struct stat buffer;
@@ -172,6 +175,31 @@ int main(int argc, char *argv[]){
     api = new pxar::pxarCore(tbname, verbosity);
 
     api->initTestboard(sig_delays, power_settings, pg_setup);
+
+    if (checkHubID) {
+        for (int hubID=0;hubID<32;hubID++) {
+        std::vector<uint8_t> hubIDs;
+        hubIDs.push_back(hubID);
+      api->initDUT(hubIDs,
+		   configParameters->getTbmType(), tbmDACs,
+		   configParameters->getRocType(), rocDACs,
+		   rocPixels);
+
+  TStopwatch sw;
+  sw.Start(kTRUE); // reset
+  do {
+    sw.Start(kFALSE); // continue
+    float i016 = api->getTBia()*1E3;
+  } while (sw.RealTime() < 0.3);
+
+  LOG(logINFO) << hubID << " A: " << api->getTBia()*1000 << "mA D: " << api->getTBid()*1000 << "mA";
+    delete api;
+    api = new pxar::pxarCore(tbname, verbosity);
+    api->initTestboard(sig_delays, power_settings, pg_setup);
+
+        }
+    }
+
     if (configParameters->customI2cAddresses()) {
       string i2cstring("");
       vector<uint8_t> i2cAddr = configParameters->getI2cAddresses();

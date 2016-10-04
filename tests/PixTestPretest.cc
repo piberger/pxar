@@ -816,7 +816,7 @@ void PixTestPretest::setVthrCompId() {
     sw.Start(kFALSE); // continue
     i016 = fApi->getTBid()*1E3;
   }
-  while( sw.RealTime() < 0.1 ); // discharge time
+  while( sw.RealTime() < 0.1 ); // discharge timer
 
   double i015 = (nRocs-1) * i016 / nRocs; // = 0 for single chip tests
 
