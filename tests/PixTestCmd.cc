@@ -4789,6 +4789,12 @@ void PixTestCmd::runCommand(std::string command) {
       cmd->fApi->daqStart(500000,true);
       cmd->fApi->daqStop(true);
   }
+  std::string prefix("adctest");
+  if (!command.compare(0, prefix.size(), prefix)){
+      cmd->exec(command.c_str());
+  }
+
+
   PixTest::update();
 
 }
