@@ -158,13 +158,30 @@ void PixTestOnShellQuickTest::doTest() {
   bigBanner(Form("PixTestOnShellQuickTest::doTest()"));
 
   fProblem = false;
+
+  // test signal levels
   signalTest();
+  fApi->Poff();
+
+  // powercycle module, since after the "adctest" test, module can be left in bad state
+  TStopwatch sw;
+  sw.Start(kTRUE); // reset
+  do {
+    sw.Start(kFALSE); // continue
+  } while (sw.RealTime() < 0.5);
+  fApi->Pon();
+
+  // "pretest"
   programROC();
   setVana();
   findTiming();
   findWorkingPixel();
   setVthrCompCalDel();
+
+  // PixelAlive with HV on/off
   hvQuickTest();
+
+  // CalS signals, threshold set to value of fulltest. Pixels with missing bumps have too low signal and are below threshold
   bbQuickTest();
 
   int seconds = t.RealTime();
