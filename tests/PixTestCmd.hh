@@ -449,6 +449,8 @@ class CmdProc {
   #define TBM0B   0x2
   #define TBM1A   0x4
   #define TBM1B   0x8
+  uint8_t tbm_map_a[2] = {TBM0A, TBM1A};
+  uint8_t tbm_map[2] = {TBM0, TBM1};
   
   
   bool verbose;
@@ -467,6 +469,8 @@ class CmdProc {
   TBMDelays tbmgetDelays();
   int tbmscan(const int nloop=10, const int ntrig=100, const int ftrigkhz=10);
   int test_timing(int nloop, int d160, int d400, int rocdelay=-1, int htdelay=0, int tokdelay=0);
+  int test_timing_tbm10c(int nloop, int d160, int d400, uint8_t tbm, int rocdelay = -1, int htdelay = 0,
+                           int tokdelay = 0);
   bool set_tbmtiming(int d160, int d400, int rocdelay[], int htdelay[], int tokdelay[], bool reset=true);
   
   int test_timing2(int nloop, int d160, int d400, int rocdelay[], int htdelay[], int tokdelay[], int daqchannel=-1);
@@ -478,6 +482,8 @@ class CmdProc {
   #define RANGE400  2.5
   void failure_restore_phases(uint8_t register_0, uint8_t register_a, uint8_t register_e);
   int find_timing(int npass=0);
+  void failure_restore_phases10c(uint8_t *register_0, uint8_t *register_a, uint8_t *register_e);
+  int find_timing_tbm10c(int npass = 0);
   void sort_time(int values[], double step, double range);
   bool find_midpoint(int threshold, int data[], uint8_t & position, int & width);
   bool find_midpoint(int threshold, double step, double range,  int data[], uint8_t & position, int & width);

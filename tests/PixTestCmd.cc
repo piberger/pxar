@@ -1390,20 +1390,20 @@ int CmdProc::tbmscan(const int nloop, const int ntrig, const int ftrigkhz){
 }
 
 
-
-int CmdProc::test_timing(int nloop, int d160, int d400, int rocdelay, int htdelay, int tokdelay){
+int CmdProc::test_timing_tbm10c(int nloop, int d160, int d400, uint8_t tbm, int rocdelay, int htdelay, int tokdelay){
+    // returns result of countGood with given values for phases, delays, and choosen tbms set
     int ftrigkhz = 100;
     int nroc=16;
     uint8_t value = ( (d160&0x7)<<5 ) + ( (d400&0x7 )<<2 );
-    
-    int stat = tbmset("basee", TBMA, value);
+
+    int stat = tbmset("basee", tbm&TBMA, value);
     if(stat>0){
         out << "error setting delay  base E " << hex << (int) value << dec << "\n";
     }
-    
+
     if (rocdelay>=0){
         value = ( (tokdelay&0x1)<<7 ) + ( (htdelay&0x1)<<6 ) + ( (rocdelay&0x7)<<3 ) + (rocdelay&0x7);
-        stat = tbmset("basea",ALLTBMS, value);
+        stat = tbmset("basea", tbm, value);
         if(stat>0){
             out << "error setting delay  base A " << hex << (int) value << dec << "\n";
         }
@@ -1413,6 +1413,10 @@ int CmdProc::test_timing(int nloop, int d160, int d400, int rocdelay, int htdela
     return countGood(nloop, fNtrigTimingTest, ftrigkhz, nroc);
 }
 
+
+int CmdProc::test_timing(int nloop, int d160, int d400, int rocdelay, int htdelay, int tokdelay){
+    return test_timing_tbm10c(nloop, d160, d400, ALLTBMS, rocdelay, htdelay, tokdelay);
+}
 
 
 bool CmdProc::set_tbmtiming(int d160, int d400, int rocdelay[], int htdelay[], int tokdelay[], bool reset){
@@ -1731,6 +1735,257 @@ int CmdProc::find_timing(int npass){
     out << "failed to find timings, sorry\n";
     // restore initial state
     failure_restore_phases(register_0, register_a, register_e);
+
+    return 0;
+}
+
+
+void CmdProc::failure_restore_phases10c(uint8_t *register_0, uint8_t *register_a, uint8_t *register_e) {
+    // helper function that restores TBM phases upon failure of the timing test. Sets the failed flag.
+    timing_fail = true;
+
+    LOG(logERROR) << "Timing test failed. Debug using PixTestCmd.";
+    for(uint8_t i = 0; i < fnTbmCore / 2; i++){
+        tbmset("base0", tbm_map[i], register_0[i]);
+        tbmset("basea", tbm_map_a[i], register_a[i]);
+        tbmset("basee", tbm_map_a[i], register_e[i]);
+    }
+}
+
+
+int CmdProc::find_timing_tbm10c(int npass){
+    // npass is the minimal number of passes
+
+    // This function tries to model a timing test of the two TBMs of a
+    // layer one module separately. The idea is to test one TBM while disabling
+    // trigger and token pass of the other one. This is not perfect however it
+    // seems to give reasonable results.
+    // An option would be to split the data stream and consider the corresponding
+    // channels separately, which is more involved, e.g. in countErrors
+
+    string tbmtype = fApi->_dut->getTbmType();
+    if (! (tbmtype=="tbm10c" && fnTbmCore == 4) ){
+        LOG(logWARNING) << "This only works for two TBM10c, i.e. layer 1 modules!";
+        out << "This only works for two TBM10c, i.e. layer 1 modules! \n";
+    }
+
+    uint8_t d160_, d400_;
+    uint8_t register_0[2];
+    uint8_t register_e[2];
+    uint8_t register_a[2];
+    uint8_t d400[2];
+    uint8_t d160[2];
+    int tokendelay[2];
+    int htdelay[2];
+    int rocdelay[2];
+
+
+    // get the phases of the alpha cores of both tbms
+    for(int i = 0; i < 2; i++) {
+        tbmget("base0", tbm_map_a[i], register_0[i]);
+        tbmget("basee", tbm_map_a[i], register_e[i]);
+        tbmget("basea", tbm_map_a[i], register_a[i]);
+        d400[i] = (register_e[i] >> 2) & 0x7;
+        d160[i] = (register_a[i] >> 5) & 0x7;
+        tokendelay[i] = (register_a[i] >> 7) & 0x1;
+        htdelay[i] =    (register_a[i] >> 6) & 0x1;
+        rocdelay[i] =   (register_a[i]) & 7;
+    }
+
+    int nloop=10;
+
+    // disable token pass
+    tbmsetbit("base0",ALLTBMS , 6, 1);
+    // diagonal scan to find something that works
+    int nmax=0;
+    for(uint8_t m=0; m<8; m++){
+        int nvalid = test_timing(nloop*10, m, m);
+        if(verbose) cout << "diag scan " << (int) m << "  valid = " << nvalid << "/ " << nloop << endl;
+        if (nvalid>nmax){
+            d400_ = m;
+            d160_ = m;
+            nmax = nvalid;
+        }
+        flush(out);
+    }
+    if (nmax==0){
+        out << " no working phases found in diag scan";
+        failure_restore_phases10c(register_0, register_a, register_e);
+        return 0;
+    }
+
+    // set some default values
+    d400[0] = d400_;
+    d400[1] = d400_;
+    d160[0] = d160_;
+    d160[1] = d160_;
+    if (verbose) cout << "diag scan result = " << (int) d400_ << endl;
+
+    for(int i = 0; i < 2; i++) {
+
+        // for the disabled tbm ...
+        int disabled_tbm = ((i + 1) % 2);
+        // ... disable tokenpass
+        tbmsetbit("base0", tbm_map[disabled_tbm], 0, 1);
+        // ... and set phases found in diag scan
+        tbmset("basee", tbm_map_a[disabled_tbm], ( (d160_&0x7)<<5 ) + ( (d400_&0x7 )<<2 ));
+        // option: always set the best phases found (i.e. in the run for TBM1 set the previous found phase for TBM0)
+
+        out << "TBM " << i << " under test, TBM " << disabled_tbm << " disabled" << "\n";
+        flush(out);
+
+        for(int pass=0; pass<3; pass++){
+
+            if (verbose) cout << " pass " << pass << endl;
+            // scan 160 MHz @ selected position
+            int test160[8]={0,0,0,0,0,0,0,0};
+            for (uint8_t m=0; m<8; m++){
+                if (npass == 0) {
+                    test160[m] = test_timing_tbm10c(nloop, m, d400[i], tbm_map[i]);
+                }
+                else {
+                    test160[m] = test_timing_tbm10c(nloop, m, d400[i], tbm_map[i], rocdelay[i], htdelay[i],
+                                                    tokendelay[i]);
+                }
+            }
+
+            int w160=0;
+            if (! find_midpoint(nloop, STEP160, RANGE160, test160, d160[i], w160)){
+                out << "160 MHz scan failed  in pass " << pass << "  d400_=" << (int) d400[i] << " " ;
+                for(unsigned int j=0; j<8; j++){ out << " " << dec << test160[j];}
+                out << "\n";
+                failure_restore_phases10c(register_0, register_a, register_e);
+                return 0;
+            }
+            if(w160==8){
+                d160[i]=0; // anything goes, 0 often seems to be ok
+            }
+            out << "160 MHz set to " << dec << (int) d160[i] << "  width=" << w160 << "\n";
+            flush(out);
+
+
+            // scan 400 MHz @ selected position
+            int test400[8]={0,0,0,0,0,0,0,0};
+            for (uint8_t m=0; m<8; m++){
+                if (npass == 0) {
+                    test400[m] = test_timing_tbm10c(nloop, d160[i], m, tbm_map[i]);
+                }
+                else {
+                    test400[m] = test_timing_tbm10c(nloop, d160[i], m, tbm_map[i], rocdelay[i], htdelay[i],
+                                                    tokendelay[i]);
+                }
+            }
+
+            int w400=0;
+            if (! find_midpoint(nloop, STEP400, RANGE400, test400, d400[i], w400)){
+                out << "400 MHz scan failed ";
+                failure_restore_phases10c(register_0, register_a, register_e);
+                return 0;
+            }
+            out << "400 MHz set to " << dec << (int) d400[i] <<  "  width="<< w400 << "\n";
+            flush(out);
+
+            // now enable trigger (again) and scan roc and header trailer delay
+            if(pass==0) tbmsetbit("base0",tbm_map[i], 6,0);
+
+            int wmax=0;
+            int sumtestmax=0;
+            for(uint8_t dtoken=0; dtoken<2; dtoken++){
+                for(uint8_t dheader=0; dheader<2; dheader++){
+                    int test[8]={0,0,0,0,0,0,0,0};  // for midpoint search
+                    int sumtest = 0;                // fallback, maxmimum search
+                    uint8_t portmax= 0;
+                    for(uint8_t dport=0; dport<8; dport++){
+                        test[dport] = test_timing_tbm10c(nloop, d160[i], d400[i], tbm_map[i], dport, dheader, dtoken);
+
+                        sumtest += test[dport];
+                        if (test[dport]>test[portmax]) portmax=dport;
+                        out << (int) d160[i] << "," << (int) d400[i] << "," << (int)dport << "," << (int)dheader << "," << (int)dtoken << " -> " <<test[dport] << endl;
+                        flush(out);
+                    }
+                    int w=0;
+                    uint8_t d=0;
+                    if(find_midpoint(nloop, 1.0, 6.25, test, d, w)){
+                        if( (w>wmax) || ( (w>0) && (w==wmax) && (dheader==dtoken)) ){
+                            wmax=w;
+                            tokendelay[i] = dtoken;
+                            htdelay[i] = dheader;
+
+                            rocdelay[i] = d;
+                        }
+                    }else{
+                        // mid point search failed, fall-back method:
+                        if ( (pass==0) && (wmax==0) && (sumtest>sumtestmax) ){
+                            tokendelay[i] = dtoken;
+                            htdelay[i] = dheader;
+                            rocdelay[i] = portmax;
+                        }
+                        if (verbose && (pass==0)){
+                            cout << "TBM " << i << " no midpoint " << (int) dtoken << " " << (int) dheader << "  : ";
+                            for(unsigned int i=0; i<8; i++){cout << " " << test[i];}
+                            cout << endl;
+                        }
+                    }
+                }
+            }
+
+
+            out << "TBM " << i << " selecting " << dec << (int) d160[i] << " " << (int) d400[i]
+                << " " << rocdelay[i]
+                << " " << htdelay[i]
+                << " " << tokendelay[i]
+                << "   width = " << wmax
+                << "   (160 400 rocs h/t token)\n";
+            flush(out);
+
+            int nloop2=fNtrigTimingTest;
+            int result= test_timing_tbm10c(nloop2, d160[i], d400[i], tbm_map[i], rocdelay[i], htdelay[i],
+                                           tokendelay[i]);
+            out << "result =  " << dec<<  result << " / " << nloop2 <<" \n" ;
+            flush(out);
+
+            if (result==nloop2) {
+                // restore base0 (token pass)
+                tbmset("base0", tbm_map[i], register_0[i]);
+
+                if(pass>=npass-1){
+                    out << "TBM " << i << " successful. \n";
+
+                    LOG(logINFO) << "TBM " << i << " phases:  160MHz: " << int(d160[i]) << ", 400MHz: " << int(d400[i])
+                                 << ", delays: ROC(0/1):" << rocdelay[i]<< ", header/trailer: " << htdelay[i]
+                                 << ", token: " << tokendelay[i];
+                    LOG(logINFO) << "(success/tries = " << result << "/" << nloop2 << "), width = " << wmax;
+
+                    if (i == 0) {break;}
+                    if (i == 1 ) {
+                        // finish after the second TBM
+                        out << "Done.\n";
+                        LOG(logINFO) << "Timing test successful.";
+                        for(int j = 0; j < 2; j++) {
+                            // just to be sure that the phases are actually set
+                            uint8_t basea = ( (tokendelay[j]&0x1)<<7 ) + ( (htdelay[j]&0x1)<<6 ) + ( (rocdelay[j]&0x7)<<3 ) + (rocdelay[j]&0x7);
+                            uint8_t basee = ( (d160[j]&0x7)<<5 ) + ( (d400[j]&0x7 )<<2 );
+                            tbmset("basea", tbm_map[j], basea);
+                            tbmset("basee", tbm_map_a[j], basee);
+                        }
+                        timing_fail = false;
+                        return 0;
+                    }
+                }else{
+                    out << "TBM " << i << ", pass " << pass << " successful, continuing\n";
+                }
+            }else{
+                out << "TBM " << i << ", pass " << pass <<" failed, retrying \n";
+            }
+            flush(out);
+        }
+
+    }
+
+
+    out << "failed to find timings, sorry\n";
+    // restore initial state
+    failure_restore_phases10c(register_0, register_a, register_e);
 
     return 0;
 }
@@ -3364,7 +3619,7 @@ int CmdProc::getData(vector<uint16_t> & buf, vector<DRecord > & data, int verbos
                 continue;
             }
             
-            if (flag  == 0xe){
+            if (flag  == 0xe){  // TBM Trailer
                 if (!tbmHeaderSeen){
                     cout << "tbm trailer without header [" << (int) i << "]" << endl;
                     for(unsigned int ii=lastEventStart; ii< i+2; ii++){
@@ -4477,6 +4732,7 @@ int CmdProc::tbm(Keyword kw, int cores){
     if (kw.match("scan","level")){ return levelscan();}
     if (kw.match("scan","raw", value)){return rawscan(value);}
     if (kw.match("timing")){return find_timing(2);}
+    if (kw.match("timing10c")){return find_timing_tbm10c(2);}
     int npass=0;
     if (kw.match("timing",npass)){return find_timing(npass);}
     if (kw.match("ports")){ return post_timing(); }
@@ -4813,6 +5069,14 @@ void PixTestCmd::runCommand(std::string command) {
 
   if (!command.compare("timing")){
       std::string s_redirect = "timing > pxar_timing.log";
+      cmd->exec(s_redirect.c_str());
+      cmd->fApi->daqTriggerSource("pg_direct");
+      cmd->fApi->daqStart(500000,true);
+      cmd->fApi->daqStop(true);
+      fProblem = cmd->timing_fail;
+  }
+  else if (!command.compare("timing10c")) {
+      std::string s_redirect = "timing10c > pxar_timing.log";
       cmd->exec(s_redirect.c_str());
       cmd->fApi->daqTriggerSource("pg_direct");
       cmd->fApi->daqStart(500000,true);

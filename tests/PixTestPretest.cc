@@ -471,7 +471,12 @@ void PixTestPretest::findTiming() {
   banner(Form("PixTestPretest::findTiming() ")); 
   PixTestFactory *factory = PixTestFactory::instance(); 
   PixTest *t =  factory->createTest("cmd", fPixSetup);
-  t->runCommand("timing");
+  if( fApi->_dut->getTbmType() == "tbm10c") {
+      t->runCommand("timing10c");
+  }
+  else {
+      t->runCommand("timing");
+  }
   if (t->testProblem()) { fProblem = true; }
   delete t; 
 
