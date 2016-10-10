@@ -1543,6 +1543,18 @@ bool CmdProc::find_midpoint(int threshold, double step, double range,  int data[
 }
 
 
+void CmdProc::failure_restore_phases(uint8_t register_0, uint8_t register_a, uint8_t register_e) {
+    // helper function that restores TBM phases upon failure of the timing test. Sets the failed flag.
+    timing_fail = true;
+
+    LOG(logERROR) << "Timing test failed. Debug using PixTestCmd.";
+
+    tbmset("base0", ALLTBMS, register_0);
+    tbmset("basea", ALLTBMS, register_a);
+    tbmset("basee", TBMA, register_e);
+}
+
+
 int CmdProc::find_timing(int npass){
     // npass is the minimal number of passes
     
@@ -1582,8 +1594,7 @@ int CmdProc::find_timing(int npass){
     }
     if (nmax==0){
         out << " no working phases found ";
-        tbmset("base0",ALLTBMS ,register_0);
-        tbmset("basee",ALLTBMS ,register_e);
+        failure_restore_phases(register_0, register_a, register_e);
         return 0;
     }
     if (verbose) cout << "diag scan result = " << (int) d400 << endl;
@@ -1606,8 +1617,7 @@ int CmdProc::find_timing(int npass){
             out << "160 MHz scan failed  in pass " << pass << "  d400=" << (int) d400 << " " ;
             for(unsigned int i=0; i<8; i++){ out << " " << dec << (int) test160[i];}
             out << "\n";
-            tbmset("base0",ALLTBMS ,register_0);
-            tbmset("basee",ALLTBMS ,register_e);
+            failure_restore_phases(register_0, register_a, register_e);
             return 0;
         }
         if(w160==8){
@@ -1630,8 +1640,7 @@ int CmdProc::find_timing(int npass){
         int w400=0;
         if (! find_midpoint(nloop, STEP400, RANGE400, test400, d400, w400)){
             out << "400 MHz scan failed ";
-            tbmset("base0",ALLTBMS, register_0);
-            tbmset("basee",ALLTBMS, register_e);
+            failure_restore_phases(register_0, register_a, register_e);
             return 0;
         }
         out << "400 MHz set to " << dec << (int) d400 <<  "  width="<< (int) w400 << "\n";
@@ -1701,7 +1710,14 @@ int CmdProc::find_timing(int npass){
             tbmset("base0", ALLTBMS, register_0);
             if(pass>=npass-1){
                 out << "successful, done. \n";
-               return 0;
+
+                LOG(logINFO) << "TBM phases:  160MHz: " << int(d160) << ", 400MHz: " << int(d400)
+                             << ", delays: ROC(0/1):" << rocdelay<< ", header/trailer: " << htdelay
+                             << ", token: " << tokendelay;
+                LOG(logINFO) << "(success/tries = " << result << "/" << nloop2 << "), width = " << wmax;
+
+                LOG(logINFO) << "Timing test successful.";
+                return 0;
             }else{
                 out << "pass " << pass << " successful, continuing\n";
             }
@@ -1714,9 +1730,7 @@ int CmdProc::find_timing(int npass){
     
     out << "failed to find timings, sorry\n";
     // restore initial state
-    tbmset("base0", ALLTBMS, register_0);
-    tbmset("basea", ALLTBMS, register_a);
-    tbmset("basee", TBMA, register_e);
+    failure_restore_phases(register_0, register_a, register_e);
 
     return 0;
 }
@@ -4803,6 +4817,7 @@ void PixTestCmd::runCommand(std::string command) {
       cmd->fApi->daqTriggerSource("pg_direct");
       cmd->fApi->daqStart(500000,true);
       cmd->fApi->daqStop(true);
+      fProblem = cmd->timing_fail;
   }
 
   PixTest::update();

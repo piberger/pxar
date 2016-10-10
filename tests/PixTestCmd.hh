@@ -457,6 +457,7 @@ class CmdProc {
   uint16_t fDumpFlawed;
   Target defaultTarget;
   map<string, deque <string> > macros;
+  bool timing_fail = false;
   
   
   int tbmset(int address, int value);
@@ -475,6 +476,7 @@ class CmdProc {
   #define RANGE160  6.25
   #define STEP400   0.57
   #define RANGE400  2.5
+  void failure_restore_phases(uint8_t register_0, uint8_t register_a, uint8_t register_e);
   int find_timing(int npass=0);
   void sort_time(int values[], double step, double range);
   bool find_midpoint(int threshold, int data[], uint8_t & position, int & width);
