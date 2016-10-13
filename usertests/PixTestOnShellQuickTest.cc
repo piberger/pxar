@@ -37,7 +37,7 @@ bbtest              button
 // constructors
 //------------------------------------------------------------------------------
 PixTestOnShellQuickTest::PixTestOnShellQuickTest( PixSetup *a, std::string name) :
-PixTest(a, name), fParNtrig(-1), fBBVthrcomp(-1), fParVcalS(250), fParVcal(200),
+PixTest(a, name), fParNtrig(10), fBBVthrcomp(105), fParVcalS(250), fParVcal(200),
 fParDeltaVthrComp(50),
 fParFracCalDel(0.5),
 fTargetIa(24)
