@@ -1205,13 +1205,18 @@ int CmdProc::countErrors(unsigned int ntrig, int ftrigkhz, int nroc, bool setup)
     vector<DRecord > data;
     data.clear();
     int verbosity = verbose ? 1 : 0;
-    stat = getData(fBuf, data, verbosity, nroc, true);
-    if (stat>0){
+    try{
+    	stat = getData(fBuf, data, verbosity, nroc, true);
+    	if (stat>0){
         return stat;
-    }else{
-        if  (fNumberOfEvents==ntrig) return 0;
-        if(verbose) cout << "number of events (" << fNumberOfEvents << ") does not match triggers "<< ntrig << endl;
-        return 999;
+    	}else{
+        	if  (fNumberOfEvents==ntrig) return 0;
+        	if(verbose) cout << "number of events (" << fNumberOfEvents << ") does not match triggers "<< ntrig << endl;
+        	return 999;
+    	}
+    }catch(pxar::DataEventNumberMismatch){
+	out << "error \n";
+	return 999;
     }
 }
 
