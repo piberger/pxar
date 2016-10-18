@@ -470,56 +470,17 @@ void PixTestPretest::findTiming() {
 
   banner(Form("PixTestPretest::findTiming() ")); 
   PixTestFactory *factory = PixTestFactory::instance(); 
-  PixTest *t =  factory->createTest("cmd", fPixSetup);		    
-  t->runCommand("timing");
+  PixTest *t =  factory->createTest("cmd", fPixSetup);
+  if( fApi->_dut->getTbmType() == "tbm10c") {
+      t->runCommand("timing10c");
+  }
+  else {
+      t->runCommand("timing");
+  }
+  if (t->testProblem()) { fProblem = true; }
   delete t; 
 
-  // -- parse output file
-  ifstream INS; 
-  char buffer[1000];
-  string sline, sparameters, ssuccess; 
-  string::size_type s1;
-  vector<double> x;
-  INS.open("pxar_timing.log"); 
-  while (INS.getline(buffer, 1000, '\n')) {
-    sline = buffer; 
-    s1 = sline.find("selecting"); 
-    if (string::npos == s1) continue;
-    sparameters = sline;
-    INS.getline(buffer, 1000, '\n');
-    ssuccess = buffer; 
-  }
-  INS.close();
-
-  // -- parse relevant lines
-  int tries(-1), success(-1); 
-  istringstream istring(ssuccess);
-  istring >> sline >> sline >> success >> sline >> tries; 
-  istring.clear(); 
-  istring.str(sparameters); 
-  int i160(-1), i400(-1), iroc(-1), iht(-1), itoken(-1), iwidth(-1); 
-  istring >> sline >> i160 >> i400 >> iroc >> iht >> itoken >> sline >> sline >> iwidth; 
-  LOG(logINFO) << "TBM phases:  160MHz: " << i160 << ", 400MHz: " << i400 
-	       << ", TBM delays: ROC(0/1):" << iroc << ", header/trailer: " << iht << ", token: " << itoken;
-  LOG(logINFO) << "(success/tries = " << success << "/" << tries << "), width = " << iwidth;
-
-  uint8_t value= ((i160 & 0x7)<<5) + ((i400 & 0x7)<<2);
-  int stat = tbmSet("basee", 0, value);
-  if (stat > 0){
-    LOG(logWARNING) << "error setting delay  base E " << hex << value << dec;
-  }
-
-  if (iroc >= 0){
-    value = ((itoken & 0x1)<<7) + ((iht & 0x1)<<6) + ((iroc & 0x7)<<3) + (iroc & 0x7);
-    stat = tbmSet("basea",2, value);
-    if (stat > 0){
-      LOG(logWARNING) << "error setting delay  base A " << hex << value << dec;
-    }
-  }
   tbmSet("base4", 2, 0x80); // reset once after changing phases
-
-  if (success < 0) fProblem = true; 
-
 }
 
 
