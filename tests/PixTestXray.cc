@@ -394,10 +394,11 @@ void PixTestXray::doPhRun() {
     if (perFull > 80) {
       seconds = t.RealTime(); 
       LOG(logINFO) << "run duration " << seconds << " seconds, buffer almost full (" 
-		   << (int)perFull << "%), pausing triggers.";
-      fApi->daqTriggerLoopHalt();
+		   << (int)perFull << "%), pausing triggers and stopping DAQ";
+      fApi->daqStop();
       processData(0);
-      LOG(logINFO) << "Resuming triggers.";
+      fApi->daqStart(FLAG_DUMP_FLAWED_EVENTS);
+      LOG(logINFO) << "Restarting DAQ and resuming triggers.";
       t.Start(kFALSE);
       fApi->daqTriggerLoop(finalPeriod);
     }
