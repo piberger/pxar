@@ -391,14 +391,14 @@ void PixTestXray::doPhRun() {
     
   while (fApi->daqStatus(perFull) && fDaq_loop) {
     gSystem->ProcessEvents();
-    if (perFull > 80) {
+    if (perFull > 70) {
+      TStopwatch sw;
       seconds = t.RealTime(); 
       LOG(logINFO) << "run duration " << seconds << " seconds, buffer almost full (" 
-		   << (int)perFull << "%), pausing triggers and stopping DAQ";
-      fApi->daqStop();
+		   << (int)perFull << "%), pausing triggers";
+      fApi->daqTriggerLoopHalt();  
       processData(0);
-      fApi->daqStart(FLAG_DUMP_FLAWED_EVENTS);
-      LOG(logINFO) << "Restarting DAQ and resuming triggers.";
+      LOG(logINFO) << "resuming triggers.";
       t.Start(kFALSE);
       fApi->daqTriggerLoop(finalPeriod);
     }
@@ -413,13 +413,74 @@ void PixTestXray::doPhRun() {
     }
   }
 
+  TStopwatch sw;
+
+  gSystem->ProcessEvents();
+
+  sw.Start(kTRUE); // reset
+  do {
+    sw.Start(kFALSE); // continue
+    gSystem->ProcessEvents();
+  } while (sw.RealTime() < 0.1);
+
+  double id = fApi->getTBid();
+  double ia = fApi->getTBia();
+
+  sw.Start(kTRUE); // reset
+  do {
+    sw.Start(kFALSE); // continue
+    gSystem->ProcessEvents();
+  } while (sw.RealTime() < 0.1);
+
+  gSystem->ProcessEvents();
+
+  LOG(logINFO) << "Id = " << id << " mA";
+  LOG(logINFO) << "Ia = " << ia << " mA";
+
+
   fApi->daqTriggerLoopHalt();
   fApi->daqStop();
+
+  sw.Start(kTRUE); // reset
+  do {
+    sw.Start(kFALSE); // continue
+    gSystem->ProcessEvents();
+  } while (sw.RealTime() < 0.1);
 
   processData(0);
 
   finalCleanup();
   fQ[0]->Draw();
+
+
+  std::stringstream ss;
+  ss << "rate: ";
+  int nTrig = fTriggers[0]->GetBinContent(1);
+  double area = 150*100*50*78*1.0e-2;
+  double average_rate = 0;
+  double rate_squares = 0;
+  for (int idxRoc=0;idxRoc<fHmap.size();idxRoc++) {
+    long nHits=0;
+    for (int r=1;r<79;r++) {
+      for (int c=1;c<51;c++) {
+        nHits += fHmap[idxRoc]->GetBinContent(1+c,1+r);
+      }
+    }
+    double rate = nHits / (area * nTrig * 25.0e-9);
+    ss << rate << " ";
+    average_rate += rate;
+    rate_squares += rate*rate;
+  }
+  ss << " MHz/cm2";
+
+  LOG(logINFO) << ss.str();
+  if (fHmap.size() > 1) {
+    average_rate /= fHmap.size();
+    rate_squares /= fHmap.size();
+    LOG(logINFO) << "mean: " << (average_rate) << " MHz/cm2";
+    LOG(logINFO) << "stddev: " << sqrt(fHmap.size() / (fHmap.size()-1) * (rate_squares - average_rate*average_rate)) << " MHz/cm2";
+  }
+
   fDisplayedHist = find(fHistList.begin(), fHistList.end(), fQ[0]);
   PixTest::update();
 
@@ -763,7 +824,6 @@ void PixTestXray::processData(uint16_t numevents) {
     ++evtCnt;
     pixCnt += it->pixels.size(); 
     
-    
     if (fParFillTree) {
       bookTree();  
       fTreeEvent.header           = it->getHeader(); 
@@ -802,7 +862,6 @@ void PixTestXray::processData(uint16_t numevents) {
 	fTreeEvent.pq[ipix]   = q;
       }
     }
-    
     if (fParFillTree) fTree->Fill();
   }
   
