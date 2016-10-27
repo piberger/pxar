@@ -24,7 +24,7 @@ public:
   void runCommand(std::string command);
   void scurveAna(std::vector<shist256*> maps, std::vector<TH1*> &resultMaps, int result);
   bool threshold(TH1 *h);
-
+  void increaseEdgePixelThreshold();
 
   void doTest();
   
@@ -34,6 +34,8 @@ private:
   int fParNSteps;
   bool fParDelayTBM;
 
+  int fParScurveLow;
+  int fParScurveHigh;
   bool          fPhCalOK;
   PHCalibration fPhCal;
   double               fThreshold, fThresholdE, fSigma, fSigmaE;  ///< variables for passing back s-curve results

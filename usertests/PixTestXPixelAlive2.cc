@@ -29,7 +29,7 @@ ntrig               10
 
 
 // ----------------------------------------------------------------------
-PixTestXPixelAlive2::PixTestXPixelAlive2(PixSetup *a, std::string name) : PixTest(a, name), fParVcal(200), fParNtrig(50), fParReset(1),fParMask(-1),fParDelayTBM(false) {
+PixTestXPixelAlive2::PixTestXPixelAlive2(PixSetup *a, std::string name) : PixTest(a, name), fParVcal(200), fParNtrig(50), fParReset(1),fParMask(-1),fParDelayTBM(false), fParScurveLow(50), fParScurveHigh(110) {
 	PixTest::init();
 	init(); 
 
@@ -63,8 +63,10 @@ void PixTestXPixelAlive2::runCommand(std::string command) {
     return;
   }
 
-
-
+  if (!command.compare("incedgethr")) {
+    increaseEdgePixelThreshold();
+    return;
+  }
 
 
   LOG(logDEBUG) << "did not find command ->" << command << "<-";
@@ -102,6 +104,12 @@ bool PixTestXPixelAlive2::setParameter(string parName, string sval) {
 			if (!parName.compare("vcal")) {
 	fParVcal = atoi(sval.c_str()); 
 			}
+      if (!parName.compare("daclo")) {
+  fParScurveLow = atoi(sval.c_str()); 
+      }
+      if (!parName.compare("dachi")) {
+  fParScurveHigh = atoi(sval.c_str()); 
+      }
 			break;
 		}
 	}
@@ -523,34 +531,35 @@ vector<pair<int, double> > calDelMax(rocIds.size(), make_pair(-1, -1)); // (CalD
     calDelEffHist.push_back(h1);
   }
 
-  int nsteps(20);
+  int nsteps(10);
   for (int istep = 0; istep < nsteps; ++istep) {
+
     // -- set CalDel per ROC
     for (unsigned int iroc = 0; iroc < rocIds.size(); ++iroc){
       int caldel = calDelLo[iroc] + istep*(calDelHi[iroc]-calDelLo[iroc])/(nsteps-1);
       fApi->setDAC("CalDel", caldel, rocIds[iroc]);
     }
 
-	pair<vector <TH2D*>,vector <TH2D*> > maps = getdata();
+    LOG(logINFO) << " step " << (istep+1) << " of " << (nsteps) << ", expecting " << 4160*fParNtrig << " events";
+    pair<vector <TH2D*>,vector <TH2D*> > maps = getdata();
 
-	vector <TH2D*> test2 = maps.first;
-
+    vector <TH2D*> test2 = maps.first;
     for (unsigned int iroc = 0; iroc < test2.size(); ++iroc) {
       fHistOptions.insert(make_pair(test2[iroc], "colz"));
       h1 = bookTH1D(Form("HR_CalDelScan_step%d_C%d", istep, getIdFromIdx(iroc)),
-		    Form("HR_CalDelScan_step%d_C%d", istep, getIdFromIdx(iroc)),  201, 0., 1.005);
+        Form("HR_CalDelScan_step%d_C%d", istep, getIdFromIdx(iroc)),  201, 0., 1.005);
       fHistList.push_back(h1);
       for (int ix = 0; ix < test2[iroc]->GetNbinsX(); ++ix) {
-	for (int iy = 0; iy < test2[iroc]->GetNbinsY(); ++iy) {
-	  h1->Fill(test2[iroc]->GetBinContent(ix+1, iy+1)/fParNtrig);
-	}
+        for (int iy = 0; iy < test2[iroc]->GetNbinsY(); ++iy) {
+          h1->Fill(test2[iroc]->GetBinContent(ix+1, iy+1)/fParNtrig);
+        }
       }
       int caldel = fApi->_dut->getDAC(rocIds[iroc], "CalDel");
       calDelEffHist[iroc]->SetBinContent(caldel, h1->GetMean());
 
       if (h1->GetMean() > calDelMax[iroc].second) {
- 	calDelMax[iroc].first  = caldel;
- 	calDelMax[iroc].second = h1->GetMean();
+        calDelMax[iroc].first  = caldel;
+        calDelMax[iroc].second = h1->GetMean();
       }
     }
 
@@ -595,6 +604,7 @@ void PixTestXPixelAlive2::doXNoiseMaps() {
 	fDirectory->cd();
 	PixTest::update(); 
 	bigBanner(Form("PixTestXPixelAlive2::doTest()"));
+  LOG(logINFO) << " Vcal scanned from " << fParScurveLow << " to " << fParScurveHigh << ", ntrig: " << fParNtrig;
 
 	fProblem = false;
 	gStyle->SetPalette(1);
@@ -647,7 +657,6 @@ void PixTestXPixelAlive2::doXNoiseMaps() {
     fApi->setPatternGenerator(fPg_setup);
   }
 	fApi->_dut->maskAllPixels(false);
-
 	fApi->_dut->testAllPixels(false);
 
   fApi->setDAC("vcal", fParVcal);
@@ -722,7 +731,8 @@ void PixTestXPixelAlive2::doXNoiseMaps() {
 	}
 
   int nsteps =0;
-  for (int istep = 10; istep < 120; ++istep) {
+  for (int istep = fParScurveLow; istep <= fParScurveHigh; ++istep) {
+    LOG(logINFO) << " step " << (istep-fParScurveLow+1) << " of " << (fParScurveHigh-fParScurveLow+1) << ", Vcal = " << istep << ", expecting " << 4160*fParNtrig << " events";
     nsteps++;
     // -- set Vcal per ROC
     for (unsigned int iroc = 0; iroc < rocIds.size(); ++iroc){
@@ -1109,4 +1119,40 @@ bool PixTestXPixelAlive2::threshold(TH1 *h) {
   }
 
   return true;
+}
+
+
+void PixTestXPixelAlive2::increaseEdgePixelThreshold() {
+  PixTest::update();
+
+  ConfigParameters* cp = fPixSetup->getConfigParameters();
+  vector<vector<pixelConfig> > rocPixelConfig = cp->getRocPixelConfig();
+
+  for (unsigned int rocIdx = 0; rocIdx < rocPixelConfig.size(); ++rocIdx) {
+
+          for(size_t pixelIdx=0;pixelIdx<rocPixelConfig[rocIdx].size();pixelIdx++) {
+            bool isHEdge = (rocPixelConfig[rocIdx][pixelIdx].column() % 51) == 0;
+            bool isVEdge = rocPixelConfig[rocIdx][pixelIdx].row() == 79;
+
+            if (isHEdge || isVEdge) {
+              int trimBits = (int)(rocPixelConfig[rocIdx][pixelIdx].trim());
+              trimBits += 8;
+              if (isHEdge && isVEdge) {
+                trimBits = 15;
+              }
+              if (trimBits > 15) {
+                trimBits = 15;
+              }
+
+              rocPixelConfig[rocIdx][pixelIdx].setTrim(trimBits);
+              bool result = fApi->_dut->updateTrimBits(rocPixelConfig[rocIdx][pixelIdx].column(), rocPixelConfig[rocIdx][pixelIdx].row(), trimBits, getIdFromIdx(rocIdx));
+
+            }
+          }
+  }
+
+  // enable all pixels, otherwise saveTrimBits() saves empty files
+  fApi->_dut->testAllPixels(true);
+  saveTrimBits();
+
 }
