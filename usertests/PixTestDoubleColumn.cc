@@ -28,6 +28,7 @@ max                 40
 npix                4
 delay               65
 data                button
+all                 button
 */
 
 // ----------------------------------------------------------------------
@@ -61,9 +62,6 @@ bool PixTestDoubleColumn::setParameter(string parName, string sval) {
       }
       if (!parName.compare("npix")) {
   fParNpix = atoi(sval.c_str()); 
-  if (fParNpix > 4) {
-    fParNpix = 4;
-  }
       }
       if (!parName.compare("delay")) {
   fParDelay = atoi(sval.c_str()); 
@@ -94,6 +92,10 @@ void PixTestDoubleColumn::runCommand(std::string command) {
   LOG(logDEBUG) << "running command: " << command;
   if (!command.compare("data")) {
     testData();
+    return;
+  }
+  if (!command.compare("all")) {
+    testAll();
     return;
   }
 
@@ -348,6 +350,152 @@ void PixTestDoubleColumn::testBuffers(std::vector<TH2D*> hX, std::vector<TH2D*> 
 
 }
 
+
+
+void PixTestDoubleColumn::testAllBuffers(std::vector<TH2D*> hX, std::vector<TH2D*> hXPH, int tsMin, int tsMax) {
+
+  int nRocs = fApi->_dut->getNEnabledRocs();
+  bool unmaskChip = false;
+
+  fApi->_dut->testAllPixels(false);
+  fApi->_dut->maskAllPixels(true);
+
+  // get calibrate signal delay
+  uint8_t wbc = 100;
+  uint8_t delay = 6;
+  vector<pair<string, uint8_t> > pgtmp = fPixSetup->getConfigParameters()->getTbPgSettings();
+  int calibrateDelayTotal = wbc + delay; //default
+  for (unsigned i = 0; i < pgtmp.size(); ++i) {
+    if (string::npos != pgtmp[i].first.find("calibrate")) {
+      calibrateDelayTotal = pgtmp[i].second;
+    };
+  }
+
+  //fApi->setDAC("wbc", wbc);
+  resetROC();
+
+  for (int iStep=0;iStep<fParNpix;iStep++) {
+
+    LOG(logINFO) << "step " << (int)iStep << " / 40";
+
+    int tsStepSize = 6;
+    for (int tsOffset=tsMin;tsOffset<tsMax+1;tsOffset+=tsStepSize) {
+      LOG(logINFO) << "timestamps: " << (int)tsOffset;
+
+      fPg_setup.clear();
+      resetROC();
+
+      int timestampsTestedPerLoop = 0;
+      for (int ts=0;ts<tsStepSize;ts++) {
+        int nTestTimestamps = tsOffset + ts;
+
+        if (nTestTimestamps <= tsMax) {
+          // -- pattern generator setup
+          fPg_setup.push_back(std::make_pair("resetroc", 50));    // PG_REST
+          for (int i=0;i<nTestTimestamps;i++) {
+          fPg_setup.push_back(std::make_pair("calibrate", fParDelay)); // PG_CAL
+          }
+          fPg_setup.push_back(std::make_pair("calibrate", calibrateDelayTotal)); // PG_CAL
+
+          fPg_setup.push_back(std::make_pair("trigger;sync", 250));   
+          if (nTestTimestamps < tsMax) {
+            fPg_setup.push_back(std::make_pair("delay", 250)); 
+          } 
+          timestampsTestedPerLoop++;
+        }
+
+      }
+      fPg_setup.push_back(std::make_pair("delay", 0)); 
+
+      int period = 22000;
+      LOG(logDEBUG) << "set pattern generator to:";
+      for (unsigned int i = 0; i < fPg_setup.size(); ++i) LOG(logDEBUG) << fPg_setup[i].first << ": " << (int)fPg_setup[i].second;
+
+      fApi->setPatternGenerator(fPg_setup);
+
+
+      fApi->_dut->maskAllPixels(false);
+      fApi->daqStart();
+
+      // test all columns
+      for (int iCol=0;iCol<52;iCol++) {
+        //LOG(logINFO) << "testing column " << (int)iCol;
+
+        fApi->_dut->testPixel(iCol,iStep*2,true);
+        fApi->_dut->testPixel(iCol,iStep*2+1,true);
+       
+        fApi->SetCalibrateBits(true);
+        fApi->daqTrigger(1, period);
+        fApi->SetCalibrateBits(false);
+
+        fApi->_dut->testPixel(iCol,iStep*2,false);
+        fApi->_dut->testPixel(iCol,iStep*2+1,false);
+
+      }
+
+      fApi->_dut->maskAllPixels(true);
+      fApi->daqStop();
+      std::vector< std::vector<int> > doubleColumnHits;
+      std::vector< std::vector<int> > doubleColumnPH;
+
+      fParDaqDatRead = false;
+      try { 
+        fParDaqDat = fApi->daqGetEventBuffer(); 
+        fParDaqDatRead = true;
+      }
+      catch(pxar::DataNoEvent &) {}
+
+
+      // fill histograms
+      if (fParDaqDatRead) {
+
+        for (int ts=0;ts<timestampsTestedPerLoop;ts++) {
+
+          for (int column=0;column<52;column++) {
+            int eventId = column * timestampsTestedPerLoop + ts;
+            pxar::Event it;
+            try { 
+              it = fParDaqDat.at(eventId);
+            }
+            catch(...) {
+              LOG(logINFO) << "no DATA!";
+            }
+            
+            std::vector< int> goodHits(nRocs,0);
+
+            //LOG(logINFO) << " column " << column << ": " << it.pixels.size();
+            int pixSize = it.pixels.size();
+            for (unsigned int ipix = 0; ipix < pixSize; ++ipix) {
+              //LOG(logINFO) << "ipix " << ipix;
+              bool rowGood = false;
+              bool columnGood = true;
+              if (it.pixels[ipix].column() != column) {
+                columnGood = false;
+               // LOG(logINFO) << "wrong column " << (int)it.pixels[ipix].column() << " instead of " << column;
+              }
+              if (it.pixels[ipix].row() == iStep*2 || it.pixels[ipix].row() == iStep*2+1) {
+                rowGood = true;
+              }
+
+              if (rowGood && columnGood) {
+                goodHits[getIdxFromId(it.pixels.at(ipix).roc())]++;
+              }
+            }
+            for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
+              int nTestTimestamps = tsOffset + ts;
+              hX[iRocIdx]->Fill(column+0.1, nTestTimestamps+0.1, goodHits[iRocIdx]);
+            }
+          }
+        }
+        
+      }
+    }
+
+  }
+
+}
+
+
 void PixTestDoubleColumn::testData() {
   cacheDacs();
 
@@ -362,6 +510,10 @@ void PixTestDoubleColumn::testData() {
     TH2D* rocHistPH  = bookTH2D(Form("npix%d_PH_C%d", fParNpix, getIdFromIdx(iRocIdx)),  Form("npix%d_PH_C%d", fParNpix, getIdFromIdx(iRocIdx)),  52, 0, 52.0, fParTsMax-fParTsMin+1, fParTsMin, fParTsMax+1);
     hX.push_back(rocHist);    
     hXPH.push_back(rocHistPH);
+  }
+  
+  if (fParNpix > 4) {
+    fParNpix = 4;
   }
 
   testBuffers(hX, hXPH, fParTsMin, fParTsMax);
@@ -456,4 +608,43 @@ void PixTestDoubleColumn::doTest() {
 
   int seconds = t.RealTime(); 
   LOG(logINFO) << "PixTestDoubleColumn::doTest() done, duration: " << seconds << " seconds";
+}
+
+
+void PixTestDoubleColumn::testAll() {
+  cacheDacs();
+
+  std::vector<TH2D*> hX;
+  std::vector<TH2D*> hXPH;
+
+  int nRocs = fApi->_dut->getNEnabledRocs();
+
+  PixTest::update(); 
+  for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
+    TH2D* rocHist  = bookTH2D(Form("npix%d_C%d", fParNpix, getIdFromIdx(iRocIdx)),  Form("npix%d_C%d", fParNpix, getIdFromIdx(iRocIdx)),  52, 0, 52.0, fParTsMax-fParTsMin+1, fParTsMin, fParTsMax+1);
+    TH2D* rocHistPH  = bookTH2D(Form("npix%d_PH_C%d", fParNpix, getIdFromIdx(iRocIdx)),  Form("npix%d_PH_C%d", fParNpix, getIdFromIdx(iRocIdx)),  52, 0, 52.0, fParTsMax-fParTsMin+1, fParTsMin, fParTsMax+1);
+    hX.push_back(rocHist);    
+    hXPH.push_back(rocHistPH);
+  }
+
+  testAllBuffers(hX, hXPH, fParTsMin, fParTsMax);
+
+  for (int iRocIdx=0;iRocIdx<nRocs;iRocIdx++) {
+    fHistList.push_back(hX[iRocIdx]);
+    fHistOptions.insert( make_pair(hX[iRocIdx], "colz")  ); 
+  }
+
+  PixTest::update(); 
+  fDisplayedHist = find( fHistList.begin(), fHistList.end(), hX[0] );
+  (*fDisplayedHist)->Draw("colz");
+
+  fPg_setup.clear();
+  LOG(logDEBUG) << "PixTestDoubleColumn::PG_Setup clean";
+  fPg_setup = fPixSetup->getConfigParameters()->getTbPgSettings();
+  fApi->setPatternGenerator(fPg_setup);
+
+  restoreDacs();
+  PixTest::update(); 
+  dutCalibrateOff();
+
 }

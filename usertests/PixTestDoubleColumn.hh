@@ -23,7 +23,11 @@ public:
   void testData();
   void resetDaq();
   void testBuffers(std::vector<TH2D*>, std::vector<TH2D*>, int, int);
+  void testAllBuffers(std::vector<TH2D*> hX, std::vector<TH2D*> hXPH, int tsMin, int tsMax);
   void findWorkingRows();
+
+  void testAll();
+
 private:
 
   int     fParNtrig, fParNpix, fParDelay; 
