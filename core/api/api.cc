@@ -822,6 +822,11 @@ void pxarCore::setHubID(uint8_t id) {
   }
 }
 
+void pxarCore::setHubIDforced(uint8_t id) {
+    _hal->setHubId(id);
+    //_dut->tbm.at(0).hubid = id;
+}
+
 std::vector< std::pair<uint8_t, std::vector<pixel> > > pxarCore::getPulseheightVsDAC(std::string dacName, uint8_t dacMin, uint8_t dacMax, uint16_t flags, uint16_t nTriggers) {
 
   // No step size provided - scanning all DACs with step size 1:

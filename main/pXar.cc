@@ -177,26 +177,64 @@ int main(int argc, char *argv[]){
     api->initTestboard(sig_delays, power_settings, pg_setup);
 
     if (checkHubID) {
-        for (int hubID=0;hubID<32;hubID++) {
         std::vector<uint8_t> hubIDs;
+        for (int hubID=0;hubID<32;hubID++) {
         hubIDs.push_back(hubID);
-      api->initDUT(hubIDs,
-		   configParameters->getTbmType(), tbmDACs,
-		   configParameters->getRocType(), rocDACs,
-		   rocPixels);
+        }
 
-  TStopwatch sw;
-  sw.Start(kTRUE); // reset
-  do {
-    sw.Start(kFALSE); // continue
-    float i016 = api->getTBia()*1E3;
-  } while (sw.RealTime() < 0.3);
+        std::vector<uint8_t> respondingHubIds;
+        float baseIa = api->getTBia()*1000.0;
+        float baseId = api->getTBid()*1000.0;
 
-  LOG(logINFO) << hubID << " A: " << api->getTBia()*1000 << "mA D: " << api->getTBid()*1000 << "mA";
-    delete api;
-    api = new pxar::pxarCore(tbname, verbosity);
-    api->initTestboard(sig_delays, power_settings, pg_setup);
+        LOG(logINFO) << "hubid=0 (base): " << " A: " << baseIa << "mA D: " << baseId  << "mA";
 
+        TLogLevel UserReportingLevel = Log::ReportingLevel();
+        for (int hubID=0;hubID<32;hubID++) {
+          hubIDs.clear();
+          hubIDs.push_back(hubID);
+
+          Log::ReportingLevel() = Log::FromString("QUIET");
+          api->initDUT(hubIDs,
+               configParameters->getTbmType(), tbmDACs,
+               configParameters->getRocType(), rocDACs,
+               rocPixels);
+
+          TStopwatch sw;
+          sw.Start(kTRUE); // reset
+          do {
+            sw.Start(kFALSE); // continue
+            float i016 = api->getTBia()*1E3;
+          } while (sw.RealTime() < 0.1);
+
+          float ia = api->getTBia()*1000.0;
+          float id = api->getTBid()*1000.0;
+
+          if (hubID==0) {
+            baseIa = ia;
+            baseId = id;
+          }
+          if ((ia-baseIa) > 100) {
+            respondingHubIds.push_back(hubID);
+          }
+            // clean up and initialize again
+            delete api;
+            api = new pxar::pxarCore(tbname, verbosity);
+            api->initTestboard(sig_delays, power_settings, pg_setup);
+          Log::ReportingLevel() = UserReportingLevel;
+          LOG(logINFO) << hubID << " A: " << (ia-baseIa)  << "mA D: " << (id-baseId) << "mA";
+        }
+
+        std::vector<uint8_t> configuresHubIDs = configParameters->getHubIds();
+        if (respondingHubIds.size() < 1) {
+            LOG(logCRITICAL) << "no HUB ID found for which the module is programmable!";
+        }
+        else if (configuresHubIDs.size() != respondingHubIds.size()) {
+            LOG(logCRITICAL) << "number of responding HUB IDs (" << respondingHubIds.size() << ") != configured HUB IDs (" << configuresHubIDs.size() << ")";
+        } else if (configuresHubIDs.size() == 1 && configuresHubIDs[0] == respondingHubIds[0]) {
+            LOG(logINFO) << "module is programmable on HUB ID " << configuresHubIDs[0] << " :-)";
+        } else {
+            LOG(logWARNING) << "configured HUB ID:" << configuresHubIDs[0];
+            LOG(logWARNING) << "responding HUB ID:" << respondingHubIds[0];
         }
     }
 

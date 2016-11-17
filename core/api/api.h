@@ -435,6 +435,10 @@ namespace pxar {
      */
     void setHubID(uint8_t id);
 
+    /** Manually set the HUB_address in the testboard even if this has not been configured
+     */
+    void setHubIDforced(uint8_t id);
+
     /** Method to scan a DAC range and measure the pulse height
      *
      *  Returns a vector of pairs containing set dac value and a pxar::pixel vector,
