@@ -147,6 +147,23 @@ void PixTestOnShellQuickTest::bookHist(string name) {
   LOG(logDEBUG) << "nothing done with " << name;
 }
 
+void PixTestOnShellQuickTest::powercycleModule() {
+
+  fApi->Poff();
+
+  // powercycle module, since after the "adctest" test, module can be left in bad state
+  TStopwatch sw;
+  sw.Start(kTRUE); // reset
+  do {
+    sw.Start(kFALSE); // continue
+  } while (sw.RealTime() < 0.5);
+  fApi->Pon();
+  sw.Start(kTRUE); // reset
+  do {
+    sw.Start(kFALSE); // continue
+  } while (sw.RealTime() < 0.5);
+  LOG(logINFO) << "powercycled";
+ }
 
 // ----------------------------------------------------------------------
 void PixTestOnShellQuickTest::doTest() {
@@ -161,15 +178,9 @@ void PixTestOnShellQuickTest::doTest() {
 
   // test signal levels
   signalTest();
-  fApi->Poff();
 
   // powercycle module, since after the "adctest" test, module can be left in bad state
-  TStopwatch sw;
-  sw.Start(kTRUE); // reset
-  do {
-    sw.Start(kFALSE); // continue
-  } while (sw.RealTime() < 0.5);
-  fApi->Pon();
+  powercycleModule();
 
   // "pretest"
   programROC();
@@ -1170,6 +1181,30 @@ void PixTestOnShellQuickTest::findTiming() {
     fApi->daqStop();
   }
 
+  if (!GoodDelaySettings) {
+    powercycleModule();
+      for (int itry = 3; itry < 6 && !GoodDelaySettings; itry++) {
+        LOG(logINFO) << "Testing Timing: Attempt #" << itry+1;
+        fApi->daqStart();
+        Log::ReportingLevel() = Log::FromString("QUIET");
+        bool goodreadback = checkReadBackBits(period);
+        LOG(logINFO) << "readback = " << (int)goodreadback;
+        LOG(logINFO) << "ignore it in this test";
+        goodreadback = true; //we don't need readback for now
+        if (goodreadback) {
+          statistics results = getEvents(NTrig, period, TrigBuffer);
+          Log::ReportingLevel() = UserReportingLevel;
+          int NEvents = (results.info_events_empty()+results.info_events_valid())/nTokenChains;
+          int NErrors = results.errors_tbm_header() + results.errors_tbm_trailer() + results.errors_roc_missing();
+          if (NEvents==NTrig && NErrors==0) GoodDelaySettings=true;
+          LOG(logINFO) << "NErrors = " << (int)NErrors;
+          LOG(logINFO) << "NEvents = " << (int)NEvents;
+        }
+        Log::ReportingLevel() = UserReportingLevel;
+        fApi->daqStop();
+      }
+  }
+
 
   if (GoodDelaySettings) {
     LOG(logINFO) << "Timings are already good, no scan needed!";
@@ -1234,6 +1269,7 @@ void PixTestOnShellQuickTest::findTiming() {
   tbmSet("base4", 2, 0x80); // reset once after changing phases
 
   if (success < 0) fProblem = true;
+  powercycleModule();
 
 }
 

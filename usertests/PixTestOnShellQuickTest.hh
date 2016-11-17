@@ -26,6 +26,7 @@ public:
     void bbQuickTest();
     void hvQuickTest();
 
+    void powercycleModule();
 
     std::vector<int> readBBvthrcomp();
     std::vector<int> readDbVana();
