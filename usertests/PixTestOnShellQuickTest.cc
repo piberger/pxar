@@ -251,7 +251,7 @@ void PixTestOnShellQuickTest::signalTest() {
 void PixTestOnShellQuickTest::bbQuickTest() {
 
   cacheDacs();
-  int bbVthrcompMax = 105; //limit threshold to prevent noisy rocs
+  int bbVthrcompMax = 115; //limit threshold to prevent noisy rocs
 
   banner(Form("PixTestOnShellQuickTest::bbQuickTest()"));
   if (fBBVthrcomp < 0) {
