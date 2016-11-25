@@ -2051,7 +2051,7 @@ int CmdProc::adctest(const string signalName){
     // restore delays, signals (modified by daqADC) and pg
     setTestboardDelay("all");
 	pg_restore();
-     
+
     if (ymin<ymax){
         int ylo=ymin/2;  for(; yhist[ylo+1024]<yhist[ylo+1+1024]; ylo++){}
         int yhi=ymax/2;  for(; yhist[yhi+1024]<yhist[yhi-1+1024]; yhi--){}
