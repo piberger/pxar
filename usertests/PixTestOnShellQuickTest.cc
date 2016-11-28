@@ -109,6 +109,7 @@ void PixTestOnShellQuickTest::runCommand(std::string command) {
     bbQuickTest();
     return;
   }
+
   if (!command.compare("hvtest")) {
     hvQuickTest();
     return;
@@ -118,6 +119,18 @@ void PixTestOnShellQuickTest::runCommand(std::string command) {
     signalTest();
     return;
   }
+
+  if (!command.compare("programroc")) {
+    programROC();
+    return;
+  }
+
+  if (!command.compare("powercycle")) {
+    powercycleModule();
+    return;
+  }
+
+
 
   LOG(logDEBUG) << "did not find command ->" << command << "<-";
 }
@@ -579,7 +592,7 @@ void PixTestOnShellQuickTest::programROC() {
   bool problem(false);
   for (unsigned int iroc = 0; iroc < rocIds.size(); ++iroc){
     fApi->setDAC("vana", vanaStart[iroc], rocIds[iroc]);
-    pxar::mDelay(1000);
+    pxar::mDelay(200);
     iA = fApi->getTBia()*1E3;
     dA = iA - iA0;
     if (dA < 5) {
